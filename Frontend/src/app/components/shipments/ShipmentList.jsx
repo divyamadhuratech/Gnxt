@@ -1,0 +1,143 @@
+import { useState, useMemo, useEffect } from "react";
+import { TooltipProvider } from "../ui/tooltip";
+import ShipmentHeader from "./ShipmentHeader";
+import ShipmentFiltersBar from "./ShipmentFiltersBar";
+import ShipmentTable from "./ShipmentTable";
+import { CreateShipmentSheet } from "../CreateShipmentSheet";
+import { ViewShipmentSheet } from "../ViewShipmentSheet";
+import { useShipments } from "./hooks/useShipments";
+import { getPODConfig, isWithinDateRange } from "./utils/shipmentStyles";
+
+export function ShipmentList() {
+  const { shipmentData, setShipmentData, loading, fetchShipments } = useShipments();
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [viewSheetOpen, setViewSheetOpen] = useState(false);
+  const [selectedShipment, setSelectedShipment] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [dateFilter, setDateFilter] = useState("all");
+  const [uploading, setUploading] = useState(false);
+  const [total, setTotal] = useState(0);
+
+  useEffect(() => {
+    fetchShipments();
+  }, [fetchShipments]);
+
+  useEffect(() => {
+    setTotal(shipmentData.length);
+  }, [shipmentData]);
+
+  const filteredShipments = useMemo(() => {
+    return shipmentData.filter((s) => {
+      const matchesSearch =
+        searchQuery === "" ||
+        (s.id && s.id.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (s.driverName && s.driverName.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (s.vehicleNumber && s.vehicleNumber.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (s.dealerName && s.dealerName.toLowerCase().includes(searchQuery.toLowerCase()));
+
+      const matchesStatus = statusFilter === "all" || s.status === statusFilter;
+      const matchesDate = dateFilter === "all" || isWithinDateRange(s.date, dateFilter);
+
+      return matchesSearch && matchesStatus && matchesDate;
+    });
+  }, [shipmentData, searchQuery, statusFilter, dateFilter]);
+
+  const statusCounts = useMemo(() => {
+    const counts = { all: shipmentData.length, Pending: 0, "In Transit": 0, Delivered: 0, Cancelled: 0, filtered: filteredShipments.length };
+    shipmentData.forEach((s) => {
+      if (counts[s.status] !== undefined) counts[s.status]++;
+    });
+    return counts;
+  }, [shipmentData, filteredShipments.length]);
+
+  const API_BASE_URL = import.meta.env?.VITE_API_URL || "http://localhost:5000/api";
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const validTypes = [
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/vnd.ms-excel",
+      "text/csv",
+    ];
+
+    if (!validTypes.includes(file.type)) {
+      alert("Please upload a valid Excel or CSV file");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch(`${API_BASE_URL}/invoices/upload`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.message || "Upload failed");
+
+      // after upload, refetch shipments/invoices as your API requires
+      await fetchShipments();
+      setTimeout(() => setUploading(false), 500);
+    } catch (err) {
+      console.error(err);
+      setUploading(false);
+      alert(err.message || "Upload failed");
+    } finally {
+      e.target.value = "";
+    }
+  };
+
+  const handleDeleted = (invoiceId) => {
+    // update local state
+    setShipmentData((prev) =>
+      prev
+        .map((s) => ({
+          ...s,
+          invoices: Array.isArray(s.invoices) ? s.invoices.filter((inv) => inv._id !== invoiceId) : s.invoices,
+        }))
+        .filter((p) => (p.invoices ? p.invoices.length > 0 : true))
+    );
+  };
+
+  return (
+    <TooltipProvider>
+      <div className="h-full flex flex-col p-6 gap-6">
+        <ShipmentHeader total={total} uploading={uploading} onCreateClick={() => setSheetOpen(true)} onFileUpload={handleFileUpload} />
+
+        <ShipmentFiltersBar
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          statusFilter={statusFilter}
+          onStatusFilterChange={setStatusFilter}
+          dateFilter={dateFilter}
+          onDateFilterChange={setDateFilter}
+          statusCounts={{ ...statusCounts }}
+          totalShipments={shipmentData.length}
+        />
+
+        <div className="bg-white rounded-lg border border-border shadow-[0_1px_3px_rgba(0,0,0,0.04)] flex-1 overflow-hidden flex flex-col">
+          <ShipmentTable
+            filteredShipments={filteredShipments}
+            loading={loading}
+            setSelectedShipment={setSelectedShipment}
+            setViewSheetOpen={setViewSheetOpen}
+            shipmentData={shipmentData}
+            setShipmentData={setShipmentData}
+            onDeleted={handleDeleted}
+          />
+        </div>
+
+        <CreateShipmentSheet open={sheetOpen} onOpenChange={setSheetOpen} />
+        <ViewShipmentSheet open={viewSheetOpen} onOpenChange={setViewSheetOpen} shipment={selectedShipment} />
+      </div>
+    </TooltipProvider>
+  );
+}
+
+export default ShipmentList;

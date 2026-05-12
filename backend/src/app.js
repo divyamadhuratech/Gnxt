@@ -5,6 +5,8 @@ import connectDB from "./config/db.js";
 import invoiceRoutes from "./routes/invoice.routes.js";
 // POD-point of delivery
 import vehicleRoutes from "./routes/vehicleRoutes.js";
+import driverRoutes from "./routes/driverRoutes.js";
+
 dotenv.config();
 const app=express();
 app.use(cors());
@@ -17,6 +19,9 @@ app.use("/api/invoices", invoiceRoutes);
 
 // Routes
 app.use("/api/vehicles", vehicleRoutes);
+
+//Drivers
+app.use("/api/drivers", driverRoutes);
 
 // Health check
 app.get("/health", (req, res) => {

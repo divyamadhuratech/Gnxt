@@ -3,6 +3,10 @@ import mongoose from "mongoose";
 
 const vehicleSchema = new mongoose.Schema(
   {
+    vehicleId: {
+      type: String,
+      unique: true,
+    },
     vehicleNo: {
       type: String,
       required: true,
@@ -24,24 +28,13 @@ const vehicleSchema = new mongoose.Schema(
       required: true,
       min: 0,
     },
-    // currentLoadKg: {
-    //   type: Number,
-    //   default: 0,
-    //   min: 0,
-    // },
-    // driver: {
-    //   id: String,
-    //   name: String,
-    // },
+   
     status: {
       type: String,
       default: "Idle",
       enum: ["Active", "In Transit", "Idle", "Maintenance"],
     },
-    // location: {
-    //   type: String,
-    //   default: "Pune Depot",
-    // },
+   
     insuranceExpiry: {
       type: Date,
       required: true,

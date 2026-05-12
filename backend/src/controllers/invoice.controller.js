@@ -132,6 +132,7 @@ export const getInvoices = async (req, res) => {
       }
 
       groupedMap.get(key).invoices.push({
+          _id: inv._id,
         invoiceNumber: inv.invoiceNumber,
         invoiceDate: inv.invoiceDate,
         isChecked: inv.isChecked,
@@ -225,6 +226,28 @@ export const toggleInvoiceCheck = async (req, res) => {
     res.status(500).json({
       success: false,
       message: error.message,
+    });
+  }
+};
+
+
+export const deleteInvoice = async (req, res) => {
+  try {
+    const { invoiceId } = req.params;
+
+    // Example for MongoDB
+    await Invoice.findByIdAndDelete(invoiceId);
+
+    res.status(200).json({
+      success: true,
+      message: "Invoice deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete invoice error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to delete invoice",
     });
   }
 };

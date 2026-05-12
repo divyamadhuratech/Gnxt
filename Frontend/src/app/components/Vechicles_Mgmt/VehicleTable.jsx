@@ -143,7 +143,7 @@ function VehicleTableRow({
             <p className="text-sm text-foreground whitespace-nowrap">
               {vehicle.vehicleNo}
             </p>
-            <p className="text-[11px] text-muted-foreground">{vehicle._id}</p>
+            <p className="text-[11px] text-muted-foreground"> {vehicle.vehicleId}</p>
           </div>
         </div>
       </TableCell>

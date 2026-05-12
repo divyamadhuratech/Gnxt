@@ -1,16 +1,16 @@
 import { createBrowserRouter } from "react-router";
 import { Layout } from "./components/Layout";
 import { DashboardPage } from "./components/DashboardPage";
-import { ShipmentList } from "./components/ShipmentList";
+import { ShipmentList } from "./components/shipments/ShipmentList";
 import { TripTrackingPage } from "./components/TripTrackingPage";
 import { VehicleTrackingPage } from "./components/VehicleTrackingPage";
 import { PlaceholderPage } from "./components/PlaceholderPage";
-import { DriversPage } from "./components/DriversPage";
+import { DriversPage } from "./components/drivers/DriversPage";
 import { VehiclesPage } from "./components/Vechicles_Mgmt/VehiclesPage";
-import { DealersPage } from "./components/dealers/DealersPage";
+import { DealersPage } from "./components/DealersPage";
 import { ReportsPage } from "./components/ReportsPage";
 import { ExpensesPage } from "./components/ExpensesPage";
-import { InvoicesPage } from "./components/InvoicesPage";
+import { InvoicesPage } from "./components/invoices/InvoicesPage";
 
 export const router = createBrowserRouter([
   {

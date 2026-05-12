@@ -5,6 +5,7 @@ import {
   uploadInvoiceSheet,
    updateInvoiceStatus,
   toggleInvoiceCheck,
+  deleteInvoice
   
 } from "../controllers/invoice.controller.js";
 import { upload } from "../middleware/upload.middleware.js";
@@ -23,5 +24,5 @@ router.patch(
   "/:plantId/check/:invoiceNumber",
   toggleInvoiceCheck
 );
-
+router.delete("/:invoiceId", deleteInvoice);
 export default router;

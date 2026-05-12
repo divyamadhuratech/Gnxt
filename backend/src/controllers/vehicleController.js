@@ -39,8 +39,28 @@ export const createVehicle = async (req, res) => {
       return res.status(409).json({ message: "Vehicle number already exists" });
     }
 
+    // Find latest vehicle
+const lastVehicle = await Vehicle.findOne().sort({ createdAt: -1 });
+
+let nextNumber = 1;
+
+if (lastVehicle && lastVehicle.vehicleId) {
+  const lastNumber = parseInt(
+    lastVehicle.vehicleId.split("-")[1]
+  );
+
+  nextNumber = lastNumber + 1;
+}
+
+// Generate VEH-001
+const vehicleId = `VEH-${String(nextNumber).padStart(3, "0")}`;
+
+console.log(`${vehicleId} vechicle id `);
+
+
     // Create new vehicle with default values
     const newVehicle = new Vehicle({
+      vehicleId,
       vehicleNo,
       type,
       model,
