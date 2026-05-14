@@ -34,6 +34,7 @@ export function InvoiceTable({
               <TableHead className="w-8 pl-4" />
               <TableHead>Plant No.</TableHead>
               <TableHead>Customer Name</TableHead>
+              <TableHead>Location</TableHead>
               <TableHead>Invoice</TableHead>
               <TableHead>Invoice Date</TableHead>
               <TableHead>Status</TableHead>
@@ -45,7 +46,7 @@ export function InvoiceTable({
             {invoices.length === 0 && !loading ? (
               <TableRow>
                 <TableCell
-                  colSpan={7}
+                  colSpan={8}
                   className="h-[300px] text-center"
                 >
                   No invoices found

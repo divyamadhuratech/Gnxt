@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import connectDB from "./config/db.js";
 import invoiceRoutes from "./routes/invoice.routes.js";
+import shipmentRoutes from "./routes/shipment.routes.js";
 // POD-point of delivery
 import vehicleRoutes from "./routes/vehicleRoutes.js";
 import driverRoutes from "./routes/driverRoutes.js";
@@ -15,7 +16,7 @@ app.use(express.urlencoded({ extended: true }));
 connectDB();
 
 app.use("/api/invoices", invoiceRoutes);
-
+app.use("/api/shipments", shipmentRoutes);
 
 // Routes
 app.use("/api/vehicles", vehicleRoutes);

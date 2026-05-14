@@ -1,7 +1,6 @@
-import { FileText, Upload, Loader2 } from "lucide-react";
 import { Button } from "../ui/button";
 
-export function ShipmentHeader({ total, uploading, onCreateClick, onFileUpload }) {
+export function ShipmentHeader({ total, onCreateClick }) {
   return (
     <div className="flex items-center justify-between">
       <div>
@@ -10,30 +9,10 @@ export function ShipmentHeader({ total, uploading, onCreateClick, onFileUpload }
           Track and manage all tyre distribution shipments
         </p>
       </div>
-
-      <div className="flex items-center gap-3">
-        <Button onClick={onCreateClick} className="gap-2 bg-[#1d4ed8] hover:bg-[#1e40af] text-white shadow-sm">
-          <PlusIcon />
-          Create Shipment
-        </Button>
-
-        <label className="cursor-pointer">
-          <input type="file" accept=".xlsx,.xls,.csv" hidden onChange={onFileUpload} disabled={uploading} />
-          <div className="inline-flex items-center gap-2 bg-[#1d4ed8] hover:bg-[#1e40af] text-white px-4 py-2 rounded-md text-sm font-medium">
-            {uploading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Uploading...
-              </>
-            ) : (
-              <>
-                <Upload className="w-4 h-4" />
-                Upload Sheet
-              </>
-            )}
-          </div>
-        </label>
-      </div>
+      <Button onClick={onCreateClick} className="gap-2 bg-[#1d4ed8] hover:bg-[#1e40af] text-white shadow-sm">
+        <PlusIcon />
+        Create Shipment
+      </Button>
     </div>
   );
 }

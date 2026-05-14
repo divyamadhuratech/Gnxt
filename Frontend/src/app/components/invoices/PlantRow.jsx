@@ -61,6 +61,13 @@ export function PlantRow({ plant, onDeleted }) {
           </span>
         </TableCell>
 
+        {/* Location */}
+        <TableCell>
+          <span className="text-sm text-muted-foreground">
+            {plant.location || "—"}
+          </span>
+        </TableCell>
+
         <TableCell>
           <span className="text-sm text-[#1d4ed8] font-medium">
             {first?.invoiceNumber || "—"}
@@ -98,6 +105,7 @@ export function PlantRow({ plant, onDeleted }) {
             <TableCell className="pl-4" />
             <TableCell />
             <TableCell />
+            <TableCell /> {/* location — empty for sub-rows */}
 
             <TableCell>
               <span className="text-sm text-[#1d4ed8] font-medium pl-2">

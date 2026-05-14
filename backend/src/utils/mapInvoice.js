@@ -47,5 +47,9 @@ export const mapExcelRowToInvoice = (row) => {
     invoiceDate: normalizeDate(
       getValue(["Invoice Date", "Date"])
     ),
+
+    location: String(
+      getValue(["District", "Location", "City", "Dealer Location", "Delivery Location", "Address"])
+    ).trim(),
   };
 };

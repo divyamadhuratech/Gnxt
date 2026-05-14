@@ -126,6 +126,7 @@ export const getInvoices = async (req, res) => {
           _id: inv._id,
           plantNumber: inv.plantReferenceNumber,
           customerName: inv.customerName,
+          location: inv.location || "",
           status: inv.status,
           invoices: [],
         });
@@ -155,6 +156,7 @@ export const getInvoices = async (req, res) => {
 
     res.status(200).json({
       success: true,
+      data: paginatedData,
       data: paginatedData,
       pagination: {
         total,
@@ -248,6 +250,26 @@ export const deleteInvoice = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to delete invoice",
+    });
+  }
+};
+
+export const getInvoicesByPlant = async (req, res) => {
+  try {
+    const { plantNumber } = req.params;
+
+    const invoices = await Invoice.find({
+      plantNumber,
+    }).sort({ invoiceDate: -1 });
+
+    res.status(200).json({
+      success: true,
+      data: invoices,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
     });
   }
 };

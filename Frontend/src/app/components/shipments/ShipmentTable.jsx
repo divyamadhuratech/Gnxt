@@ -7,6 +7,7 @@ export function ShipmentTable({
   loading,
   setSelectedShipment,
   setViewSheetOpen,
+  setEditShipment,
   shipmentData,
   setShipmentData,
   onDeleted,
@@ -27,7 +28,6 @@ export function ShipmentTable({
               <TableHead className="w-[110px]">Date</TableHead>
               <TableHead className="w-[110px]">Status</TableHead>
               <TableHead className="w-[110px]">POD</TableHead>
-              <TableHead className="w-[110px]">Created by</TableHead>
               <TableHead className="w-[60px] pr-5 text-center">View</TableHead>
             </TableRow>
           </TableHeader>
@@ -35,10 +35,11 @@ export function ShipmentTable({
           <TableBody>
             {filteredShipments.map((shipment) => (
               <PlantRow
-                key={shipment.id}
+                key={shipment._id}
                 shipment={shipment}
                 setSelectedShipment={setSelectedShipment}
                 setViewSheetOpen={setViewSheetOpen}
+                setEditShipment={setEditShipment}
                 shipmentData={shipmentData}
                 setShipmentData={setShipmentData}
                 onDeleted={onDeleted}
@@ -47,7 +48,7 @@ export function ShipmentTable({
 
             {filteredShipments.length === 0 && !loading && (
               <TableRow>
-                <TableCell colSpan={11} className="h-32 text-center text-muted-foreground">
+                <TableCell colSpan={10} className="h-32 text-center text-muted-foreground">
                   <div className="flex flex-col items-center gap-2">
                     <Truck className="w-8 h-8 text-muted-foreground/40" />
                     <p className="text-sm">No shipments found</p>

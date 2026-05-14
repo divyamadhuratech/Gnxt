@@ -3,8 +3,8 @@ import { TooltipProvider } from "../ui/tooltip";
 import ShipmentHeader from "./ShipmentHeader";
 import ShipmentFiltersBar from "./ShipmentFiltersBar";
 import ShipmentTable from "./ShipmentTable";
-import { CreateShipmentSheet } from "../CreateShipmentSheet";
-import { ViewShipmentSheet } from "../ViewShipmentSheet";
+import { CreateShipmentSheet } from "./CreateShipmentSheet";
+import { ViewShipmentSheet } from "./ViewShipmentSheet";
 import { useShipments } from "./hooks/useShipments";
 import { getPODConfig, isWithinDateRange } from "./utils/shipmentStyles";
 
@@ -13,6 +13,7 @@ export function ShipmentList() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [viewSheetOpen, setViewSheetOpen] = useState(false);
   const [selectedShipment, setSelectedShipment] = useState(null);
+  const [editShipment, setEditShipment] = useState(null); // shipment to edit
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("all");
@@ -28,24 +29,27 @@ export function ShipmentList() {
   }, [shipmentData]);
 
   const filteredShipments = useMemo(() => {
-    return shipmentData.filter((s) => {
+    const list = Array.isArray(shipmentData) ? shipmentData : [];
+    return list.filter((s) => {
       const matchesSearch =
         searchQuery === "" ||
-        (s.id && s.id.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (s.shipmentId && s.shipmentId.toLowerCase().includes(searchQuery.toLowerCase())) ||
         (s.driverName && s.driverName.toLowerCase().includes(searchQuery.toLowerCase())) ||
         (s.vehicleNumber && s.vehicleNumber.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (s.dealerName && s.dealerName.toLowerCase().includes(searchQuery.toLowerCase()));
+        (s.destinations?.[0]?.plantReferenceNumber && s.destinations[0].plantReferenceNumber.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (s.destinations?.[0]?.lrNumber && s.destinations[0].lrNumber.toLowerCase().includes(searchQuery.toLowerCase()));
 
       const matchesStatus = statusFilter === "all" || s.status === statusFilter;
-      const matchesDate = dateFilter === "all" || isWithinDateRange(s.date, dateFilter);
+      const matchesDate = dateFilter === "all" || isWithinDateRange(s.createdAt, dateFilter);
 
       return matchesSearch && matchesStatus && matchesDate;
     });
   }, [shipmentData, searchQuery, statusFilter, dateFilter]);
 
   const statusCounts = useMemo(() => {
-    const counts = { all: shipmentData.length, Pending: 0, "In Transit": 0, Delivered: 0, Cancelled: 0, filtered: filteredShipments.length };
-    shipmentData.forEach((s) => {
+    const list = Array.isArray(shipmentData) ? shipmentData : [];
+    const counts = { all: list.length, Pending: 0, "In Transit": 0, Delivered: 0, Cancelled: 0, filtered: filteredShipments.length };
+    list.forEach((s) => {
       if (counts[s.status] !== undefined) counts[s.status]++;
     });
     return counts;
@@ -108,7 +112,7 @@ export function ShipmentList() {
   return (
     <TooltipProvider>
       <div className="h-full flex flex-col p-6 gap-6">
-        <ShipmentHeader total={total} uploading={uploading} onCreateClick={() => setSheetOpen(true)} onFileUpload={handleFileUpload} />
+        <ShipmentHeader total={total} onCreateClick={() => setSheetOpen(true)} />
 
         <ShipmentFiltersBar
           searchQuery={searchQuery}
@@ -127,13 +131,19 @@ export function ShipmentList() {
             loading={loading}
             setSelectedShipment={setSelectedShipment}
             setViewSheetOpen={setViewSheetOpen}
+            setEditShipment={(s) => { setEditShipment(s); setSheetOpen(true); }}
             shipmentData={shipmentData}
             setShipmentData={setShipmentData}
             onDeleted={handleDeleted}
           />
         </div>
 
-        <CreateShipmentSheet open={sheetOpen} onOpenChange={setSheetOpen} />
+        <CreateShipmentSheet
+          open={sheetOpen}
+          onOpenChange={(v) => { setSheetOpen(v); if (!v) setEditShipment(null); }}
+          editShipment={editShipment}
+          onCreated={() => fetchShipments()}
+        />
         <ViewShipmentSheet open={viewSheetOpen} onOpenChange={setViewSheetOpen} shipment={selectedShipment} />
       </div>
     </TooltipProvider>

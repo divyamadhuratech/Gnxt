@@ -10,8 +10,10 @@ export function useShipments() {
     setLoading(true);
     try {
       const res = await fetch(`${API_BASE_URL}/shipments`);
-      const data = await res.json();
-      setShipmentData(data || []);
+      const json = await res.json();
+      // Handle both plain array and { data: [] } shaped responses
+      const list = Array.isArray(json) ? json : Array.isArray(json?.data) ? json.data : [];
+      setShipmentData(list);
     } catch (err) {
       console.error("Failed to fetch shipments", err);
       setShipmentData([]);

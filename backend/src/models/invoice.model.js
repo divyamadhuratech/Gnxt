@@ -22,6 +22,12 @@ const invoiceSchema = new mongoose.Schema(
       required: true,
     },
 
+    location: {  // Customer/Delivery Location (from XL sheet, used for shipment tracking)
+      type: String,
+      trim: true,
+      default: "",
+    },
+
     status: {
       type: String,
       enum: ["In Transit", "Pending", "Delivered"],
