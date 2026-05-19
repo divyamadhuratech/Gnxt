@@ -26,7 +26,7 @@ export const getVehicleById = async (req, res) => {
 // Create new vehicle
 export const createVehicle = async (req, res) => {
   try {
-    const { vehicleNo, type, model, capacityKg, insuranceExpiry, ownership } = req.body;
+    const { vehicleNo, type, model, capacityKg, insuranceExpiry, ownership, gpsImei } = req.body;
 
     // Validation
     if (!vehicleNo || !type || !model || !capacityKg || !insuranceExpiry || !ownership) {
@@ -67,8 +67,9 @@ console.log(`${vehicleId} vechicle id `);
       capacityKg: Number(capacityKg),
       insuranceExpiry: new Date(insuranceExpiry),
       ownership,
-      status: "Idle", // Default status
-      availability: "Available", // Default availability
+      gpsImei: gpsImei || "",
+      status: "Idle",
+      availability: "Available",
     });
 
     const savedVehicle = await newVehicle.save();
@@ -116,7 +117,7 @@ console.log(`${vehicleId} vechicle id `);
 
 export const updateVehicle = async (req, res) => {
   try {
-    const { vehicleNo, type, model, capacityKg, insuranceExpiry, ownership, status, availability } = req.body;
+    const { vehicleNo, type, model, capacityKg, insuranceExpiry, ownership, status, availability, gpsImei } = req.body;
 
     // Find vehicle
     const vehicle = await Vehicle.findById(req.params.id);
@@ -150,6 +151,7 @@ export const updateVehicle = async (req, res) => {
       }
     }
     if (availability && !status) vehicle.availability = availability; // Allow manual override if no status change
+    if (gpsImei !== undefined) vehicle.gpsImei = gpsImei;
 
     const updatedVehicle = await vehicle.save();
     res.status(200).json(updatedVehicle);

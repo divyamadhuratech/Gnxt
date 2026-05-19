@@ -1,4 +1,5 @@
-import { Search, CalendarDays } from "lucide-react";
+import { Search, CalendarDays, X, RotateCcw } from "lucide-react";
+
 import { format } from "date-fns";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
@@ -17,14 +18,10 @@ export function ExpenseFiltersBar({
   searchQuery,
   setSearchQuery,
   setCurrentPage,
-  dateFrom,
-  setDateFrom,
-  dateFromOpen,
-  setDateFromOpen,
-  dateTo,
-  setDateTo,
-  dateToOpen,
-  setDateToOpen,
+  filterDate,
+  setFilterDate,
+  dateOpen,
+  setDateOpen,
   filterShipment,
   setFilterShipment,
   filterVehicle,
@@ -36,7 +33,10 @@ export function ExpenseFiltersBar({
   shipmentIds,
   vehicleIds,
   driverNames,
+  onClear,
+  hasActiveFilters,
 }) {
+
   return (
     <div className="bg-white border border-border rounded-xl p-4 space-y-3">
       <div className="flex flex-wrap items-center gap-3">
@@ -54,30 +54,28 @@ export function ExpenseFiltersBar({
           />
         </div>
 
-        {/* Date From */}
-        <Popover open={dateFromOpen} onOpenChange={setDateFromOpen} modal={true}>
+        {/* Single Date Picker */}
+        <Popover open={dateOpen} onOpenChange={setDateOpen} modal={true}>
           <PopoverTrigger asChild>
             <Button
               variant="outline"
               className={`h-9 px-3 text-xs gap-1.5 border-border bg-white hover:bg-white ${
-                !dateFrom ? "text-muted-foreground" : "text-foreground"
+                !filterDate ? "text-muted-foreground" : "text-foreground"
               }`}
             >
               <CalendarDays className="w-3.5 h-3.5" />
-              {dateFrom
-                ? dateFrom.toDateString() === new Date().toDateString()
-                  ? "Today"
-                  : format(dateFrom, "dd MMM yyyy")
+              {filterDate
+                ? format(filterDate, "dd MMM yyyy")
                 : "Pick a date"}
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="start">
             <Calendar
               mode="single"
-              selected={dateFrom}
+              selected={filterDate}
               onSelect={(d) => {
-                setDateFrom(d ?? undefined);
-                setDateFromOpen(false);
+                setFilterDate(d ?? undefined);
+                setDateOpen(false);
                 setCurrentPage(1);
               }}
               initialFocus
@@ -85,21 +83,6 @@ export function ExpenseFiltersBar({
           </PopoverContent>
         </Popover>
 
-        {/* Date To */}
-        <Popover open={dateToOpen} onOpenChange={setDateToOpen} modal={true}>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar
-              mode="single"
-              selected={dateTo}
-              onSelect={(d) => {
-                setDateTo(d ?? undefined);
-                setDateToOpen(false);
-                setCurrentPage(1);
-              }}
-              initialFocus
-            />
-          </PopoverContent>
-        </Popover>
 
         {/* LR Number */}
         <Select
@@ -109,6 +92,9 @@ export function ExpenseFiltersBar({
             setCurrentPage(1);
           }}
         >
+          <SelectTrigger className="h-9 w-[150px] text-xs bg-white border-border">
+            <SelectValue placeholder="All LR Numbers" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All LR Numbers</SelectItem>
             {shipmentIds.map((s) => (
@@ -127,6 +113,9 @@ export function ExpenseFiltersBar({
             setCurrentPage(1);
           }}
         >
+          <SelectTrigger className="h-9 w-[140px] text-xs bg-white border-border">
+            <SelectValue placeholder="All Vehicles" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Vehicles</SelectItem>
             {vehicleIds.map((v) => (
@@ -145,6 +134,9 @@ export function ExpenseFiltersBar({
             setCurrentPage(1);
           }}
         >
+          <SelectTrigger className="h-9 w-[140px] text-xs bg-white border-border">
+            <SelectValue placeholder="All Drivers" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Drivers</SelectItem>
             {driverNames.map((d) => (
@@ -163,6 +155,9 @@ export function ExpenseFiltersBar({
             setCurrentPage(1);
           }}
         >
+          <SelectTrigger className="h-9 w-[140px] text-xs bg-white border-border">
+            <SelectValue placeholder="All Types" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Types</SelectItem>
             {expenseTypes.map((t) => (
@@ -172,7 +167,20 @@ export function ExpenseFiltersBar({
             ))}
           </SelectContent>
         </Select>
+
+        {/* Clear Filters */}
+        {hasActiveFilters && (
+          <Button
+            variant="ghost"
+            onClick={onClear}
+            className="h-9 px-3 text-xs gap-1.5 text-muted-foreground hover:text-red-600 hover:bg-red-50"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            Clear
+          </Button>
+        )}
       </div>
+
     </div>
   );
 }

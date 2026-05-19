@@ -1,5 +1,4 @@
 import { ChevronRight, Truck, MapPin, Clock, CheckCircle2, FileWarning, XCircle } from "lucide-react";
-import { stats } from "./data/dashboardData";
 
 // Map iconName strings to actual icon components
 const ICON_MAP = {
@@ -11,7 +10,7 @@ const ICON_MAP = {
   XCircle,
 };
 
-export function DashboardStatsGrid({ onStatClick }) {
+export function DashboardStatsGrid({ onStatClick, stats = [] }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
       {stats.map((stat, i) => {

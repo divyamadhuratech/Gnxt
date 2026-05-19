@@ -11,8 +11,14 @@ import { ShipmentSummaryCard } from "./create/ShipmentSummaryCard";
 const API_BASE_URL = import.meta.env?.VITE_API_URL || "http://localhost:5000/api";
 const DRAFT_KEY    = "shipment_draft";
 
+const generateId = () => {
+  return typeof crypto !== 'undefined' && crypto.randomUUID 
+    ? crypto.randomUUID() 
+    : Date.now().toString(36) + Math.random().toString(36).substring(2);
+};
+
 const emptyEntry = () => ({
-  id: crypto.randomUUID(),
+  id: generateId(),
   plantReferenceNumber: "",
   invoiceIds: [],
   totalTyres: 0,
@@ -60,7 +66,7 @@ export function CreateShipmentSheet({ open, onOpenChange, onCreated, editShipmen
 
     if (editShipment) {
       const entries = (editShipment.destinations ?? []).map((dest) => ({
-        id: crypto.randomUUID(),
+        id: generateId(),
         plantReferenceNumber: dest.plantReferenceNumber || "",
         invoiceIds: (dest.invoiceIds ?? []).map((inv) => (typeof inv === "object" ? inv._id : inv)),
         deliveryLocation: dest.deliveryLocation || "",

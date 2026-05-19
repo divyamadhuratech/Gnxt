@@ -9,6 +9,7 @@ import {
   getInvoicesByPlant,
   getPlantNumbers,
   getNextShipmentId,
+  getShipmentsByDriver,
 } from "../controllers/shipment.controller.js";
 
 const router = express.Router();
@@ -19,6 +20,7 @@ router.get("/next-id",                        getNextShipmentId);
 // Plant data helpers (used by create form)
 router.get("/plant-numbers",                  getPlantNumbers);
 router.get("/invoices-by-plant/:plantRef",    getInvoicesByPlant);
+router.get("/by-driver/:driverId",            getShipmentsByDriver);
 
 // Shipment CRUD
 router.post("/",                              createShipment);

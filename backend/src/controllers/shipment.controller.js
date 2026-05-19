@@ -381,3 +381,22 @@ export const getPlantNumbers = async (req, res) => {
     res.status(500).json({ success: false, message: "Error fetching plant numbers", error: err.message });
   }
 };
+
+/* ─────────────────────────────────────────────────
+   GET /api/shipments/by-driver/:driverId
+   Returns all shipments assigned to a specific driver
+───────────────────────────────────────────────── */
+export const getShipmentsByDriver = async (req, res) => {
+  try {
+    const { driverId } = req.params;
+    const shipments = await Shipment.find({ driverId })
+      .sort({ createdAt: -1 })
+      .populate("vehicleId", "vehicleNo type model capacityKg")
+      .lean();
+
+    res.status(200).json({ success: true, data: shipments });
+  } catch (err) {
+    console.error("Get shipments by driver error:", err);
+    res.status(500).json({ success: false, message: "Error fetching driver shipments", error: err.message });
+  }
+};

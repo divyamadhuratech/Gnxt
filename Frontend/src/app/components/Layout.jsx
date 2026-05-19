@@ -20,8 +20,11 @@ import {
   BoxesIcon,
   Wallet,
   ReceiptText,
-
+  Loader2,
 } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
+import { LoginPage } from "./auth/LoginPage";
+import { ProfileModal } from "./auth/ProfileModal";
 import { Input } from "./ui/input";
 import {
   DropdownMenu,
@@ -139,9 +142,24 @@ const bottomNavItems = [
 ];
 
 export function Layout() {
+  const { user, loading, logout, isAuthenticated } = useAuth();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+
+  if (loading) {
+    return (
+      <div className="h-screen w-screen flex flex-col items-center justify-center bg-[#0f172a] gap-4">
+        <Loader2 className="w-10 h-10 text-[#1d4ed8] animate-spin" />
+        <span className="text-white/60 text-sm animate-pulse tracking-wide font-medium">Validating session...</span>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <LoginPage />;
+  }
 
   // Determine page title from current route
   const getPageTitle = () => {
@@ -278,56 +296,35 @@ export function Layout() {
             </div>
 
             <div className="flex items-center gap-3">
-              {/* Search */}
-              <div className="relative hidden lg:block">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                <Input
-                  placeholder="Search anything..."
-                  className="pl-9 h-8 w-[220px] bg-[#f5f6f8] border-transparent text-sm focus:border-border focus:bg-white"
-                />
-              </div>
-
-              {/* Notification Bell */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button className="relative w-9 h-9 rounded-lg flex items-center justify-center hover:bg-muted/60 transition-colors text-muted-foreground hover:text-foreground">
-                    <Bell className="w-[18px] h-[18px]" />
-                    <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>Notifications</TooltipContent>
-              </Tooltip>
-
-              {/* Divider */}
-              <div className="w-px h-6 bg-border" />
-
               {/* Profile Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className="flex items-center gap-2.5 hover:bg-muted/60 rounded-lg px-2 py-1.5 transition-colors">
                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#1d4ed8] to-[#7c3aed] flex items-center justify-center">
-                      <span className="text-xs text-white">RM</span>
+                      <span className="text-xs text-white uppercase font-bold">
+                        {user?.avatar || user?.username?.slice(0, 2)?.toUpperCase() || "US"}
+                      </span>
                     </div>
                     <div className="hidden sm:block text-left">
-                      <p className="text-xs text-foreground">Madhura</p>
+                      <p className="text-xs text-foreground font-medium capitalize">{user?.username}</p>
                       <p className="text-[10px] text-muted-foreground">
-                        Operations Manager
+                        {user?.role || "Logistics Staff"}
                       </p>
                     </div>
                     <ChevronDown className="w-3 h-3 text-muted-foreground hidden sm:block" />
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem className="gap-2">
+                  <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => setProfileModalOpen(true)}>
                     <User className="w-3.5 h-3.5" />
                     My Profile
                   </DropdownMenuItem>
-                  <DropdownMenuItem className="gap-2">
+                  <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => navigate("/settings")}>
                     <Settings className="w-3.5 h-3.5" />
                     Settings
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem className="gap-2 text-red-600 focus:text-red-600">
+                  <DropdownMenuItem className="gap-2 text-red-600 focus:text-red-600 cursor-pointer" onClick={logout}>
                     <LogOut className="w-3.5 h-3.5" />
                     Sign Out
                   </DropdownMenuItem>
@@ -339,6 +336,12 @@ export function Layout() {
           {/* Page Content */}
           <main className="flex-1 overflow-auto relative">
             <Outlet />
+
+            <ProfileModal
+              isOpen={profileModalOpen}
+              onClose={() => setProfileModalOpen(false)}
+              user={user}
+            />
 
             {/* Floating Create Now Button */}
             {location.pathname !== "/shipments" && (

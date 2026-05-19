@@ -4,34 +4,13 @@ import { ExpenseFiltersBar } from "./ExpenseFiltersBar";
 import { ExpenseSummaryCards } from "./ExpenseSummaryCards";
 import { ExpenseTable } from "./ExpenseTable";
 import { AddExpenseModal } from "./AddExpenseModal";
+import { EditExpenseModal } from "./EditExpenseModal";
 import { ViewExpenseDialog } from "./ViewExpenseDialog";
 import { ITEMS_PER_PAGE } from "./data/expensesData";
 
 export function ExpensesPage() {
   const [expenses, setExpenses] = useState([]);
-
-  const shipmentIds = useMemo(
-    () =>
-      [...new Set(expenses.map((e) => e.lrNumber))].filter(
-        (id) => id && id !== "",
-      ),
-    [expenses],
-  );
-  const vehicleIds = useMemo(
-    () =>
-      [...new Set(expenses.map((e) => e.vehicleId))].filter(
-        (id) => id && id !== "",
-      ),
-    [expenses],
-  );
-  const driverNames = useMemo(
-    () =>
-      [...new Set(expenses.map((e) => e.driverName))].filter(
-        (name) => name && name !== "",
-      ),
-    [expenses],
-  );
-
+  const [shipments, setShipments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -41,13 +20,11 @@ export function ExpensesPage() {
   const [filterVehicle, setFilterVehicle] = useState("all");
   const [filterDriver, setFilterDriver] = useState("all");
   const [filterExpenseType, setFilterExpenseType] = useState("all");
-  const [dateFrom, setDateFrom] = useState();
-  const [dateTo, setDateTo] = useState();
-  const [dateFromOpen, setDateFromOpen] = useState(false);
-  const [dateToOpen, setDateToOpen] = useState(false);
+  const [filterDate, setFilterDate] = useState();
+  const [dateOpen, setDateOpen] = useState(false);
 
   // Sorting
-  const [sortField, setSortField] = useState("date");
+  const [sortField, setSortField] = useState("tripId");
   const [sortDir, setSortDir] = useState("desc");
 
   // Pagination
@@ -55,18 +32,26 @@ export function ExpensesPage() {
 
   // Modal
   const [addModalOpen, setAddModalOpen] = useState(false);
-  const [addModalLr, setAddModalLr] = useState(null);
+  const [addModalTripId, setAddModalTripId] = useState(null);
   const [viewExpense, setViewExpense] = useState(null);
+  const [editExpense, setEditExpense] = useState(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
 
   const fetchExpenses = async () => {
     try {
       setLoading(true);
-      const response = await fetch("http://localhost:5000/api/expenses");
-      if (!response.ok) {
-        throw new Error("Failed to fetch expenses");
-      }
-      const data = await response.json();
-      setExpenses(data);
+      const [expRes, shipRes] = await Promise.all([
+        fetch("http://localhost:5000/api/expenses"),
+        fetch("http://localhost:5000/api/shipments?limit=1000")
+      ]);
+      if (!expRes.ok) throw new Error("Failed to fetch expenses");
+      if (!shipRes.ok) throw new Error("Failed to fetch shipments");
+      
+      const expData = await expRes.json();
+      const shipData = await shipRes.json();
+      
+      setExpenses(expData);
+      setShipments(shipData.data || []);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -78,31 +63,95 @@ export function ExpensesPage() {
     fetchExpenses();
   }, []);
 
-  // Filtered + sorted data
-  const filtered = useMemo(() => {
+  // Filter dropdown data
+  const shipmentIds = useMemo(() => {
+    const ids = expenses.map((e) => e.tripId || e.lrNumber).filter(Boolean);
+    return [...new Set(ids)];
+  }, [expenses]);
+
+  const vehicleIds = useMemo(() => {
+    const ids = expenses.map((e) => e.vehicleId).filter(Boolean);
+    return [...new Set(ids)];
+  }, [expenses]);
+
+  const driverNames = useMemo(() => {
+    const names = expenses.map((e) => e.driverName).filter(Boolean);
+    return [...new Set(names)];
+  }, [expenses]);
+
+  // Filtered + sorted + grouped by Trip ID
+  const processedData = useMemo(() => {
     let data = [...expenses];
 
+    // 1. Grouping by Trip ID (or fallback)
+    const groupedMap = new Map();
+    data.forEach((e) => {
+      const key = e.tripId || e.lrNumber || `manual-${e.driverName}-${e.vehicleId}`;
+      if (!groupedMap.has(key)) {
+        groupedMap.set(key, {
+          tripId: e.tripId || "No Trip ID",
+          lrNumber: e.lrNumber || "N/A",
+          driverName: e.driverName || "N/A",
+          vehicleId: e.vehicleId || "N/A",
+          date: e.date,
+          status: e.status || "Pending",
+          paymentMode: e.paymentMode || "Cash",
+          amount: 0,
+          breakdown: []
+        });
+      }
+
+      const grp = groupedMap.get(key);
+      grp.breakdown.push({
+        ...e,
+        amount: e.totalAmount !== undefined ? e.totalAmount : (e.amount || 0)
+      });
+      grp.amount += (e.totalAmount !== undefined ? e.totalAmount : (e.amount || 0));
+    });
+
+    let groupedData = Array.from(groupedMap.values());
+
+    // 2. Filtering
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      data = data.filter(
-        (e) =>
-          (e.lrNumber || "").toLowerCase().includes(q) ||
-          (e.driverName || "").toLowerCase().includes(q) ||
-          (e.vehicleId || "").toLowerCase().includes(q),
+      groupedData = groupedData.filter(
+        (g) =>
+          g.tripId.toLowerCase().includes(q) ||
+          g.driverName.toLowerCase().includes(q) ||
+          g.vehicleId.toLowerCase().includes(q) ||
+          g.breakdown.some((e) => (e.lrNumber || "").toLowerCase().includes(q))
       );
     }
-    if (filterShipment !== "all")
-      data = data.filter((e) => e.lrNumber === filterShipment);
-    if (filterVehicle !== "all")
-      data = data.filter((e) => e.vehicleId === filterVehicle);
-    if (filterDriver !== "all")
-      data = data.filter((e) => e.driverName === filterDriver);
-    if (filterExpenseType !== "all")
-      data = data.filter((e) => e.expenseType === filterExpenseType);
-    if (dateFrom) data = data.filter((e) => new Date(e.date) >= dateFrom);
-    if (dateTo) data = data.filter((e) => new Date(e.date) <= dateTo);
+    if (filterShipment !== "all") {
+      groupedData = groupedData.filter(
+        (g) => g.tripId === filterShipment || g.breakdown.some((e) => e.lrNumber === filterShipment)
+      );
+    }
+    if (filterVehicle !== "all") {
+      groupedData = groupedData.filter((g) => g.vehicleId === filterVehicle);
+    }
+    if (filterDriver !== "all") {
+      groupedData = groupedData.filter((g) => g.driverName === filterDriver);
+    }
+    if (filterExpenseType !== "all") {
+      groupedData = groupedData.filter((g) =>
+        g.breakdown.some((e) => e.items?.some((item) => item.expenseType === filterExpenseType))
+      );
+    }
+    if (filterDate) {
+      const target = new Date(filterDate);
+      groupedData = groupedData.filter((g) =>
+        g.breakdown.some((e) => {
+          const ed = new Date(e.date);
+          return ed.getFullYear() === target.getFullYear() &&
+                 ed.getMonth() === target.getMonth() &&
+                 ed.getDate() === target.getDate();
+        })
+      );
+    }
 
-    data.sort((a, b) => {
+    // 3. Sorting
+    groupedData.sort((a, b) => {
       const aVal = a[sortField];
       const bVal = b[sortField];
       if (typeof aVal === "number" && typeof bVal === "number") {
@@ -113,36 +162,40 @@ export function ExpensesPage() {
         : String(bVal).localeCompare(String(aVal));
     });
 
-    return data;
+    return groupedData;
   }, [
     searchQuery,
     filterShipment,
     filterVehicle,
     filterDriver,
     filterExpenseType,
-    dateFrom,
-    dateTo,
+    filterDate,
     sortField,
     sortDir,
+    expenses,
   ]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
-  const paginated = filtered.slice(
+  const totalPages = Math.max(1, Math.ceil(processedData.length / ITEMS_PER_PAGE));
+  const paginated = processedData.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE,
   );
 
   // Summary calculations
-  const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
-  const fuelCost = expenses
-    .filter((e) => e.expenseType === "Fuel")
-    .reduce((s, e) => s + e.amount, 0);
-  const tollCharges = expenses
-    .filter((e) => e.expenseType === "Toll")
-    .reduce((s, e) => s + e.amount, 0);
-  const maintenance = expenses
-    .filter((e) => e.expenseType === "Maintenance")
-    .reduce((s, e) => s + e.amount, 0);
+  const totalExpenses = expenses.reduce((s, e) => s + (e.totalAmount !== undefined ? e.totalAmount : (e.amount || 0)), 0);
+  
+  const getAmountByType = (type) => {
+    return expenses.reduce((sum, e) => {
+      if (e.items && e.items.length > 0) {
+        return sum + e.items.filter((item) => item.expenseType === type).reduce((s, i) => s + (i.amount || 0), 0);
+      }
+      return sum + (e.expenseType === type ? (e.amount || 0) : 0);
+    }, 0);
+  };
+
+  const fuelCost = getAmountByType("Fuel");
+  const tollCharges = getAmountByType("Toll");
+  const maintenance = getAmountByType("Maintenance");
   const otherExpenses = totalExpenses - fuelCost - tollCharges - maintenance;
 
   const toggleSort = (field) => {
@@ -161,8 +214,7 @@ export function ExpensesPage() {
     setFilterVehicle("all");
     setFilterDriver("all");
     setFilterExpenseType("all");
-    setDateFrom(undefined);
-    setDateTo(undefined);
+    setFilterDate(undefined);
     setCurrentPage(1);
   };
 
@@ -181,7 +233,40 @@ export function ExpensesPage() {
       }
 
       const savedExpense = await response.json();
-      setExpenses((prev) => [...prev, savedExpense]);
+      if (Array.isArray(savedExpense)) {
+        setExpenses((prev) => [...savedExpense, ...prev]);
+      } else {
+        setExpenses((prev) => [savedExpense, ...prev]);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const updateExpense = async (id, payload) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/expenses/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) throw new Error("Failed to update expense");
+      
+      const { data } = await response.json();
+      setExpenses((prev) => prev.map((e) => (e._id === id ? { ...e, ...data } : e)));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const deleteExpense = async (id) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/expenses/${id}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) throw new Error("Failed to delete expense");
+      
+      setExpenses((prev) => prev.filter((e) => e._id !== id));
     } catch (err) {
       console.error(err);
     }
@@ -193,14 +278,13 @@ export function ExpensesPage() {
     filterVehicle !== "all" ||
     filterDriver !== "all" ||
     filterExpenseType !== "all" ||
-    dateFrom ||
-    dateTo;
+    filterDate;
 
   return (
     <div className="p-6 lg:p-8 space-y-6 max-w-[1400px]">
       <ExpenseHeader
         onAddExpense={() => {
-          setAddModalLr(null);
+          setAddModalTripId(null);
           setAddModalOpen(true);
         }}
       />
@@ -209,14 +293,10 @@ export function ExpensesPage() {
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         setCurrentPage={setCurrentPage}
-        dateFrom={dateFrom}
-        setDateFrom={setDateFrom}
-        dateFromOpen={dateFromOpen}
-        setDateFromOpen={setDateFromOpen}
-        dateTo={dateTo}
-        setDateTo={setDateTo}
-        dateToOpen={dateToOpen}
-        setDateToOpen={setDateToOpen}
+        filterDate={filterDate}
+        setFilterDate={setFilterDate}
+        dateOpen={dateOpen}
+        setDateOpen={setDateOpen}
         filterShipment={filterShipment}
         setFilterShipment={setFilterShipment}
         filterVehicle={filterVehicle}
@@ -228,6 +308,8 @@ export function ExpensesPage() {
         shipmentIds={shipmentIds}
         vehicleIds={vehicleIds}
         driverNames={driverNames}
+        onClear={clearFilters}
+        hasActiveFilters={hasActiveFilters}
       />
 
       <ExpenseSummaryCards
@@ -240,7 +322,7 @@ export function ExpensesPage() {
 
       <ExpenseTable
         paginated={paginated}
-        filtered={filtered}
+        filtered={processedData}
         currentPage={currentPage}
         setCurrentPage={setCurrentPage}
         totalPages={totalPages}
@@ -248,24 +330,35 @@ export function ExpensesPage() {
         sortDir={sortDir}
         toggleSort={toggleSort}
         onViewExpense={setViewExpense}
-        onAddExpenseForLr={(lrNumber) => {
-          setAddModalLr(lrNumber);
+        onAddExpenseForTrip={(tripId) => {
+          setAddModalTripId(tripId);
           setAddModalOpen(true);
         }}
+        onEditExpense={(expense) => {
+          setEditExpense(expense);
+          setEditModalOpen(true);
+        }}
+        onDeleteExpense={deleteExpense}
       />
 
       <AddExpenseModal
         open={addModalOpen}
         onOpenChange={setAddModalOpen}
-        lr={addModalLr}
+        tripId={addModalTripId}
         onSave={addExpense}
-        expenses={expenses}
-        shipmentIds={shipmentIds}
+        shipments={shipments}
       />
 
       <ViewExpenseDialog
         expense={viewExpense}
         onClose={() => setViewExpense(null)}
+      />
+
+      <EditExpenseModal
+        open={editModalOpen}
+        onOpenChange={setEditModalOpen}
+        expense={editExpense}
+        onSave={updateExpense}
       />
     </div>
   );

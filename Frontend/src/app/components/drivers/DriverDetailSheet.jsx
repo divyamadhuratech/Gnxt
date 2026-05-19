@@ -1,20 +1,14 @@
 import { createPortal } from "react-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   X,
   Phone as PhoneIcon,
-  Truck,
-  MapPin,
   IdCard,
   Calendar,
-  CheckCircle2,
   Eye,
-  Edit,
-  UserPlus,
-  ExternalLink,
-  AlertTriangle,
   ChevronLeft,
   ChevronRight,
+  Loader2,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { ScrollArea } from "../ui/scroll-area";
@@ -27,176 +21,74 @@ import {
   TableRow,
 } from "../ui/table";
 
-/* ── EXTENDED MOCK DATA ────────────────────────── */
-
-const driverExtendedInfo = {
-  "DRV-001": {
-    license: "MH-DL-2019-87432",
-    licenseExpiry: "2027-03-15",
-    experience: 8,
-    address: "Pune, Maharashtra",
-  },
-  "DRV-002": {
-    license: "MH-DL-2020-54321",
-    licenseExpiry: "2028-06-20",
-    experience: 5,
-    address: "Nashik, Maharashtra",
-  },
-  "DRV-003": {
-    license: "MH-DL-2018-11234",
-    licenseExpiry: "2026-09-10",
-    experience: 10,
-    address: "Mumbai, Maharashtra",
-  },
-  "DRV-004": {
-    license: "MH-DL-2021-66789",
-    licenseExpiry: "2029-01-05",
-    experience: 3,
-    address: "Nagpur, Maharashtra",
-  },
-  "DRV-005": {
-    license: "MH-DL-2017-99001",
-    licenseExpiry: "2026-12-30",
-    experience: 12,
-    address: "Kolhapur, Maharashtra",
-  },
-  "DRV-006": {
-    license: "MH-DL-2019-33456",
-    licenseExpiry: "2027-08-18",
-    experience: 7,
-    address: "Aurangabad, Maharashtra",
-  },
-  "DRV-007": {
-    license: "MH-DL-2020-22345",
-    licenseExpiry: "2028-04-22",
-    experience: 6,
-    address: "Solapur, Maharashtra",
-  },
-  "DRV-008": {
-    license: "MH-DL-2016-78900",
-    licenseExpiry: "2026-07-14",
-    experience: 14,
-    address: "Satara, Maharashtra",
-  },
-  "DRV-009": {
-    license: "MH-DL-2022-45678",
-    licenseExpiry: "2030-02-28",
-    experience: 2,
-    address: "Thane, Maharashtra",
-  },
-  "DRV-010": {
-    license: "MH-DL-2018-56790",
-    licenseExpiry: "2026-11-09",
-    experience: 9,
-    address: "Sangli, Maharashtra",
-  },
-};
-
-const pastShipments = [
-  {
-    id: "SHP-2026-1801",
-    dealer: "MRF Dealer – Pune",
-    vehicle: "MH-12-AB-1234",
-    distance: "142 km",
-    deliveryDate: "22 Feb 2026",
-    status: "Delivered",
-    onTime: true,
-  },
-  {
-    id: "SHP-2026-1789",
-    dealer: "Apollo Tyres – Nashik",
-    vehicle: "MH-04-CD-5678",
-    distance: "218 km",
-    deliveryDate: "20 Feb 2026",
-    status: "Delivered",
-    onTime: false,
-  },
-  {
-    id: "SHP-2026-1776",
-    dealer: "CEAT Dealer – Satara",
-    vehicle: "MH-12-AB-1234",
-    distance: "167 km",
-    deliveryDate: "18 Feb 2026",
-    status: "Delivered",
-    onTime: true,
-  },
-  {
-    id: "SHP-2026-1762",
-    dealer: "JK Tyre – Kolhapur",
-    vehicle: "MH-43-GH-3456",
-    distance: "289 km",
-    deliveryDate: "15 Feb 2026",
-    status: "Delivered",
-    onTime: true,
-  },
-  {
-    id: "SHP-2026-1748",
-    dealer: "Bridgestone – Mumbai",
-    vehicle: "MH-04-CD-5678",
-    distance: "152 km",
-    deliveryDate: "12 Feb 2026",
-    status: "Returned",
-    onTime: false,
-  },
-  {
-    id: "SHP-2026-1733",
-    dealer: "Goodyear – Aurangabad",
-    vehicle: "MH-12-AB-1234",
-    distance: "312 km",
-    deliveryDate: "09 Feb 2026",
-    status: "Delivered",
-    onTime: true,
-  },
-  {
-    id: "SHP-2026-1720",
-    dealer: "Continental – Nagpur",
-    vehicle: "MH-14-EF-9012",
-    distance: "456 km",
-    deliveryDate: "06 Feb 2026",
-    status: "Delivered",
-    onTime: true,
-  },
-  {
-    id: "SHP-2026-1708",
-    dealer: "Yokohama – Thane",
-    vehicle: "MH-09-KL-7890",
-    distance: "98 km",
-    deliveryDate: "03 Feb 2026",
-    status: "Cancelled",
-    onTime: false,
-  },
-];
+const API_BASE_URL = import.meta.env?.VITE_API_URL || "http://localhost:5000/api";
 
 /* ── STATUS STYLES ─────────────────────────────── */
 
 const driverTypeBadgeStyles = {
   Own: "bg-blue-50 text-blue-700 border-blue-200",
-  Hired: "bg-purple-50 text-purple-700 border-purple-200",
+  Hired: "bg-amber-50 text-amber-700 border-amber-200",
   Contract: "bg-teal-50 text-teal-700 border-teal-200",
 };
 
 /* ── COMPONENT ─────────────────────────────────── */
 
-export function DriverDetailSheet({ driver, open, onClose }) {
+export function DriverDetailSheet({ driver, open, onClose, onViewShipment }) {
   const [historyPage, setHistoryPage] = useState(0);
+  const [shipments, setShipments] = useState([]);
+  const [loadingShipments, setLoadingShipments] = useState(false);
+
   const pageSize = 5;
+
+  /* ── Fetch real shipments for this driver ── */
+  useEffect(() => {
+    if (!driver?._id || !open) return;
+
+    setHistoryPage(0);
+    setShipments([]);
+    setLoadingShipments(true);
+
+    fetch(`${API_BASE_URL}/shipments/by-driver/${driver._id}`)
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.success) setShipments(res.data ?? []);
+      })
+      .catch((err) => console.error("Failed to load driver shipments:", err))
+      .finally(() => setLoadingShipments(false));
+  }, [driver?._id, open]);
 
   if (!driver || !open) return null;
 
-  const extInfo = driverExtendedInfo[driver.id] || {
-    license: "N/A",
-    licenseExpiry: "N/A",
-    experience: 0,
-    address: "N/A",
-  };
+  const typeStyle = driverTypeBadgeStyles[driver.driverType] ?? "bg-slate-50 text-slate-700 border-slate-200";
 
-  const typeStyle = driverTypeBadgeStyles[driver.driverType];
-
-  const totalPages = Math.ceil(pastShipments.length / pageSize);
-  const pagedShipments = pastShipments.slice(
+  const totalPages = Math.ceil(shipments.length / pageSize);
+  const pagedShipments = shipments.slice(
     historyPage * pageSize,
     (historyPage + 1) * pageSize
   );
+
+  /* ── Derive display values from real shipment ── */
+  const getDealer = (s) => {
+    const dest = s.destinations?.[0];
+    return dest?.customerName || dest?.plantReferenceNumber || "—";
+  };
+
+  const getVehicle = (s) => {
+    if (typeof s.vehicleId === "object" && s.vehicleId?.vehicleNo) return s.vehicleId.vehicleNo;
+    return s.vehicleNumber || "—";
+  };
+
+  const getDeliveryDate = (s) => {
+    const d = s.deliveryDate || s.dispatchDate;
+    if (!d) return "—";
+    return new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  };
+
+  /* ── Close driver sheet and open Shipment Details ── */
+  const handleViewShipment = (s) => {
+    onClose();
+    if (onViewShipment) onViewShipment(s);
+  };
 
   const sheetContent = (
     <div className="fixed inset-0 z-[9999]">
@@ -218,7 +110,7 @@ export function DriverDetailSheet({ driver, open, onClose }) {
               <div>
                 <h2 className="text-foreground text-lg">{driver.name}</h2>
                 <p className="text-sm text-muted-foreground mt-0.5">
-                  {driver.id}
+                  {driver._id}
                 </p>
               </div>
             </div>
@@ -252,7 +144,7 @@ export function DriverDetailSheet({ driver, open, onClose }) {
                 </InfoField>
                 <InfoField label="Phone Number">
                   <a
-                    href={`tel:${driver.phone.replace(/\s/g, "")}`}
+                    href={`tel:${driver.phone?.replace(/\s/g, "")}`}
                     className="inline-flex items-center gap-1.5 text-sm text-foreground hover:text-[#1d4ed8] transition-colors"
                   >
                     <PhoneIcon className="w-3.5 h-3.5 text-muted-foreground" />
@@ -261,25 +153,14 @@ export function DriverDetailSheet({ driver, open, onClose }) {
                 </InfoField>
                 <InfoField label="License Number">
                   <span className="text-sm text-foreground">
-                    {driver.licenseNumber}
+                    {driver.licenseNumber || "—"}
                   </span>
                 </InfoField>
-                {/* <InfoField label="License Expiry">
-                  <span className="text-sm text-foreground">
-                    {extInfo.licenseExpiry}
-                  </span>
-                </InfoField> */}
                 <InfoField label="Experience">
                   <span className="text-sm text-foreground">
                     {driver.age} age
                   </span>
                 </InfoField>
-                {/* <InfoField label="Address">
-                  <span className="text-sm text-foreground flex items-center gap-1.5">
-                    <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
-                    {extInfo.address}
-                  </span>
-                </InfoField> */}
               </div>
             </div>
 
@@ -289,139 +170,145 @@ export function DriverDetailSheet({ driver, open, onClose }) {
                 <h3 className="text-sm text-foreground flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-[#1d4ed8]" />
                   Past Shipment History
+                  {!loadingShipments && (
+                    <span className="ml-auto text-xs text-muted-foreground">
+                      {shipments.length} shipment{shipments.length !== 1 ? "s" : ""}
+                    </span>
+                  )}
                 </h3>
               </div>
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-[#f8f9fb] hover:bg-[#f8f9fb]">
-                    <TableHead className="text-xs text-muted-foreground uppercase tracking-wider py-2.5 pl-5">
-                      Shipment ID
-                    </TableHead>
-                    <TableHead className="text-xs text-muted-foreground uppercase tracking-wider py-2.5">
-                      Dealer
-                    </TableHead>
-                    <TableHead className="text-xs text-muted-foreground uppercase tracking-wider py-2.5">
-                      Vehicle
-                    </TableHead>
-                    <TableHead className="text-xs text-muted-foreground uppercase tracking-wider py-2.5">
-                      Distance
-                    </TableHead>
-                    <TableHead className="text-xs text-muted-foreground uppercase tracking-wider py-2.5">
-                      Delivery Date
-                    </TableHead>
-                    <TableHead className="text-xs text-muted-foreground uppercase tracking-wider py-2.5">
-                      Status
-                    </TableHead>
-                    <TableHead className="text-xs text-muted-foreground uppercase tracking-wider py-2.5">
-                      On-Time
-                    </TableHead>
-                    <TableHead className="text-xs text-muted-foreground uppercase tracking-wider py-2.5 pr-5 text-right">
-                      View
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {pagedShipments.map((s) => (
-                    <TableRow
-                      key={s.id}
-                      className="hover:bg-[#f8f9fb]/60 transition-colors"
-                    >
-                      <TableCell className="py-2.5 pl-5">
-                        <span className="text-sm text-[#1d4ed8] cursor-pointer hover:underline">
-                          {s.id}
-                        </span>
-                      </TableCell>
-                      <TableCell className="py-2.5 text-sm text-foreground">
-                        {s.dealer}
-                      </TableCell>
-                      <TableCell className="py-2.5">
-                        <span className="text-xs text-foreground bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200 font-mono">
-                          {s.vehicle}
-                        </span>
-                      </TableCell>
-                      <TableCell className="py-2.5 text-sm text-foreground">
-                        {s.distance}
-                      </TableCell>
-                      <TableCell className="py-2.5 text-sm text-muted-foreground">
-                        {s.deliveryDate}
-                      </TableCell>
-                      <TableCell className="py-2.5">
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs border ${
-                            s.status === "Delivered"
-                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                              : s.status === "Returned"
-                                ? "bg-amber-50 text-amber-700 border-amber-200"
-                                : "bg-red-50 text-red-700 border-red-200"
-                          }`}
+
+              {loadingShipments ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                  <span className="ml-2 text-sm text-muted-foreground">Loading shipments…</span>
+                </div>
+              ) : shipments.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <Calendar className="w-8 h-8 text-muted-foreground/40 mb-2" />
+                  <p className="text-sm text-muted-foreground">No shipments found for this driver.</p>
+                  <p className="text-xs text-muted-foreground/60 mt-0.5">Shipments will appear here once assigned.</p>
+                </div>
+              ) : (
+                <>
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-[#f8f9fb] hover:bg-[#f8f9fb]">
+                        <TableHead className="text-xs text-muted-foreground uppercase tracking-wider py-2.5 pl-5">
+                          Shipment ID
+                        </TableHead>
+                        <TableHead className="text-xs text-muted-foreground uppercase tracking-wider py-2.5">
+                          Dealer
+                        </TableHead>
+                        <TableHead className="text-xs text-muted-foreground uppercase tracking-wider py-2.5">
+                          Vehicle
+                        </TableHead>
+                        <TableHead className="text-xs text-muted-foreground uppercase tracking-wider py-2.5">
+                          Delivery Date
+                        </TableHead>
+                        <TableHead className="text-xs text-muted-foreground uppercase tracking-wider py-2.5">
+                          Status
+                        </TableHead>
+                        <TableHead className="text-xs text-muted-foreground uppercase tracking-wider py-2.5 pr-5 text-right">
+                          View
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {pagedShipments.map((s) => (
+                        <TableRow
+                          key={s._id}
+                          className="hover:bg-[#f8f9fb]/60 transition-colors"
                         >
-                          {s.status}
-                        </span>
-                      </TableCell>
-                      <TableCell className="py-2.5">
-                        {s.onTime ? (
-                          <span className="inline-flex items-center gap-1 text-xs text-emerald-600">
-                            <CheckCircle2 className="w-3.5 h-3.5" /> On-Time
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-xs text-red-500">
-                            <AlertTriangle className="w-3.5 h-3.5" /> Delayed
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell className="py-2.5 pr-5 text-right">
+                          <TableCell className="py-2.5 pl-5">
+                            <button
+                              onClick={() => handleViewShipment(s)}
+                              className="text-sm text-[#1d4ed8] hover:underline cursor-pointer"
+                            >
+                              {s.shipmentId || s._id}
+                            </button>
+                          </TableCell>
+                          <TableCell className="py-2.5 text-sm text-foreground">
+                            {getDealer(s)}
+                          </TableCell>
+                          <TableCell className="py-2.5">
+                            <span className="text-xs text-foreground bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200 font-mono">
+                              {getVehicle(s)}
+                            </span>
+                          </TableCell>
+                          <TableCell className="py-2.5 text-sm text-muted-foreground">
+                            {getDeliveryDate(s)}
+                          </TableCell>
+                          <TableCell className="py-2.5">
+                            <span
+                              className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs border ${
+                                s.status === "Delivered"
+                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                  : s.status === "In Transit"
+                                    ? "bg-blue-50 text-blue-700 border-blue-200"
+                                    : s.status === "Pending"
+                                      ? "bg-amber-50 text-amber-700 border-amber-200"
+                                      : "bg-red-50 text-red-700 border-red-200"
+                              }`}
+                            >
+                              {s.status}
+                            </span>
+                          </TableCell>
+                          <TableCell className="py-2.5 pr-5 text-right">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0 text-muted-foreground hover:text-[#1d4ed8] hover:bg-[#1d4ed8]/5"
+                              onClick={() => handleViewShipment(s)}
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  {totalPages > 1 && (
+                    <div className="px-5 py-3 border-t border-border bg-[#f8f9fb]/50 flex items-center justify-between">
+                      <p className="text-xs text-muted-foreground">
+                        Page {historyPage + 1} of {totalPages}
+                      </p>
+                      <div className="flex items-center gap-1">
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-7 w-7 p-0 text-muted-foreground hover:text-[#1d4ed8] hover:bg-[#1d4ed8]/5"
+                          className="h-7 w-7 p-0"
+                          disabled={historyPage === 0}
+                          onClick={() => setHistoryPage((p) => p - 1)}
                         >
-                          <Eye className="w-3.5 h-3.5" />
+                          <ChevronLeft className="w-3.5 h-3.5" />
                         </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              {totalPages > 1 && (
-                <div className="px-5 py-3 border-t border-border bg-[#f8f9fb]/50 flex items-center justify-between">
-                  <p className="text-xs text-muted-foreground">
-                    Page {historyPage + 1} of {totalPages}
-                  </p>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 w-7 p-0"
-                      disabled={historyPage === 0}
-                      onClick={() => setHistoryPage((p) => p - 1)}
-                    >
-                      <ChevronLeft className="w-3.5 h-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 w-7 p-0"
-                      disabled={historyPage >= totalPages - 1}
-                      onClick={() => setHistoryPage((p) => p + 1)}
-                    >
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
-                </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0"
+                          disabled={historyPage >= totalPages - 1}
+                          onClick={() => setHistoryPage((p) => p + 1)}
+                        >
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
         </ScrollArea>
 
-        {/* ── STICKY FOOTER ─── */}
-        <div className="bg-white border-t border-border px-6 py-4 shrink-0 flex items-center justify-end gap-3">
-          <Button variant="outline" className="h-9 px-4 text-sm gap-2">
-            <Edit className="w-3.5 h-3.5" />
-            Edit Driver
+        {/* ── STICKY FOOTER — Edit Driver removed ─── */}
+        <div className="bg-white border-t border-border px-6 py-4 shrink-0 flex items-center justify-end">
+          <Button variant="outline" size="sm" onClick={onClose}>
+            Close
           </Button>
-       
         </div>
       </div>
+
     </div>
   );
 

@@ -1,9 +1,8 @@
 import { FileText, ChevronRight } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
-import { pendingPODs } from "./data/dashboardData";
 
-export function PendingPODsPanel() {
+export function PendingPODsPanel({ pendingPODs = [] }) {
   return (
     <div className="bg-white border border-border rounded-xl p-6 shadow-sm flex flex-col">
       <div className="mb-6 flex items-center justify-between">

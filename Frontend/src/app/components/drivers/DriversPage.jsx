@@ -3,9 +3,10 @@ import DriverHeader from "./DriverHeader";
 import DriverFiltersBar from "./DriverFiltersBar";
 import DriverTable from "./DriverTable";
 import AddDriverDialog from "./AddDriverDialog";
-
 import { useDrivers } from "./hooks/useDrivers";
-import {DriverDetailSheet} from './DriverDetailSheet';
+import { DriverDetailSheet } from "./DriverDetailSheet";
+import { ViewShipmentSheet } from "../shipments/ViewShipmentSheet";
+
 const API_BASE_URL = "http://localhost:5000/api/drivers";
 
 export function DriversPage() {
@@ -17,6 +18,8 @@ export function DriversPage() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [editingDriver, setEditingDriver] = useState(null);
+  const [selectedShipment, setSelectedShipment] = useState(null);
+  const [viewShipmentOpen, setViewShipmentOpen] = useState(false);
 
   useEffect(() => {
     fetchDrivers();
@@ -148,6 +151,19 @@ export function DriversPage() {
         driver={selectedDriver}
         open={sheetOpen}
         onClose={closeDriverSheet}
+        onViewShipment={(shipment) => {
+          setSelectedShipment(shipment);
+          setViewShipmentOpen(true);
+        }}
+      />
+
+      <ViewShipmentSheet
+        open={viewShipmentOpen}
+        onOpenChange={(val) => {
+          setViewShipmentOpen(val);
+          if (!val) setSelectedShipment(null);
+        }}
+        shipment={selectedShipment}
       />
 
       <AddDriverDialog

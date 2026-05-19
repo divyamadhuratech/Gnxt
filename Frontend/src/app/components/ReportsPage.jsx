@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Package,
   Truck,
@@ -8,22 +8,10 @@ import {
   TrendingUp,
   TrendingDown,
   CalendarDays,
-  Activity,
-  Download,
   Filter,
   BarChart3,
   RefreshCw,
 } from "lucide-react";
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-} from "recharts";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import {
@@ -35,35 +23,6 @@ import {
 } from "./ui/select";
 import { cn } from "./ui/utils";
 
-/* ── MOCK DATA ──────────────────────────────────── */
-
-const shipmentSummaryData = [
-  { name: "Mar 10", dispatched: 42, delivered: 38, returned: 2 },
-  { name: "Mar 11", dispatched: 55, delivered: 45, returned: 4 },
-  { name: "Mar 12", dispatched: 60, delivered: 58, returned: 1 },
-  { name: "Mar 13", dispatched: 48, delivered: 52, returned: 3 },
-  { name: "Mar 14", dispatched: 75, delivered: 65, returned: 5 },
-  { name: "Mar 15", dispatched: 82, delivered: 78, returned: 2 },
-  { name: "Mar 16", dispatched: 30, delivered: 40, returned: 1 },
-];
-
-/* ── Shared tooltip ─────────────────────────────── */
-function ChartTooltip({ active, payload, label }) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="bg-white rounded-lg border border-border px-3 py-2 shadow-lg text-xs">
-      <p className="text-muted-foreground mb-1">{label}</p>
-      {payload.map((p, i) => (
-        <div key={i} className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full shrink-0" style={{ background: p.color }} />
-          <span className="text-foreground">{p.name}:</span>
-          <span className="text-foreground ml-auto">{p.value}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 /* ── REPORTS PAGE ────────────────────────────────── */
 
 export function ReportsPage() {
@@ -71,9 +30,66 @@ export function ReportsPage() {
   const [vehicleFilter, setVehicleFilter] = useState("all");
   const [driverFilter, setDriverFilter]   = useState("all");
   const [dealerFilter, setDealerFilter]   = useState("all");
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  const [stats, setStats] = useState({
+    total:     { value: 0, trend: "0%", up: true },
+    active:    { value: 0, trend: "0%", up: true },
+    completed: { value: 0, trend: "0%", up: true },
+  });
+
+  const [filterOptions, setFilterOptions] = useState({
+    vehicles: [],
+    drivers:  [],
+    dealers:  [],
+  });
+
+  const [loading, setLoading] = useState(true);
+
+  // ── Fetch filter options on mount & refresh ────────
+  useEffect(() => {
+    async function fetchFilters() {
+      try {
+        const res = await fetch("http://localhost:5000/api/reports/filters");
+        const json = await res.json();
+        if (json.success) setFilterOptions(json.data);
+      } catch (err) {
+        console.error("Error fetching filters:", err);
+      }
+    }
+    fetchFilters();
+  }, [refreshTrigger]);
+
+  // ── Fetch stats when filters change ──────────────────
+  useEffect(() => {
+    async function fetchStats() {
+      setLoading(true);
+      try {
+        const query = new URLSearchParams({
+          dateRange,
+          vehicle: vehicleFilter,
+          driver:  driverFilter,
+          dealer:  dealerFilter,
+        }).toString();
+
+        const res = await fetch(`http://localhost:5000/api/reports/stats?${query}`);
+        const json = await res.json();
+        if (json.success) setStats(json.data);
+      } catch (err) {
+        console.error("Error fetching stats:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchStats();
+  }, [dateRange, vehicleFilter, driverFilter, dealerFilter, refreshTrigger]);
+
+  const handleRefresh = () => {
+    setRefreshTrigger(prev => prev + 1);
+  };
 
   return (
-    <div className="p-6 lg:p-8 max-w-[1600px] mx-auto space-y-6">
+    <div id="printable-report" className="p-6 lg:p-8 max-w-[1600px] mx-auto space-y-6">
 
       {/* ── HEADER ─────────────────────────────────── */}
       <div className="flex flex-col gap-4">
@@ -87,20 +103,22 @@ export function ReportsPage() {
               Analyze transport operations, fleet performance, and delivery metrics.
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="h-8 text-xs bg-white gap-1.5">
-              <RefreshCw className="w-3.5 h-3.5" />
+          <div className="flex items-center gap-2 no-print">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs bg-white gap-1.5"
+              onClick={handleRefresh}
+              disabled={loading}
+            >
+              <RefreshCw className={cn("w-3.5 h-3.5", loading && "animate-spin")} />
               Refresh
-            </Button>
-            <Button size="sm" className="h-8 text-xs bg-[#1d4ed8] hover:bg-[#1e40af] text-white gap-1.5">
-              <Download className="w-3.5 h-3.5" />
-              Export PDF
             </Button>
           </div>
         </div>
 
         {/* ── FILTERS BAR ───────────────────────────── */}
-        <div className="flex flex-wrap items-center gap-3 bg-white border border-border rounded-xl px-4 py-3 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+        <div className="flex flex-wrap items-center gap-3 bg-white border border-border rounded-xl px-4 py-3 shadow-[0_1px_3px_rgba(0,0,0,0.04)] no-print">
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground mr-1">
             <Filter className="w-3.5 h-3.5" />
             Filters
@@ -129,10 +147,9 @@ export function ReportsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Vehicles</SelectItem>
-              <SelectItem value="MH12 CD 5678">MH12 CD 5678</SelectItem>
-              <SelectItem value="MH04 EF 9012">MH04 EF 9012</SelectItem>
-              <SelectItem value="MH14 GH 3456">MH14 GH 3456</SelectItem>
-              <SelectItem value="MH31 KL 2345">MH31 KL 2345</SelectItem>
+              {filterOptions.vehicles.map((v) => (
+                <SelectItem key={v} value={v}>{v}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
 
@@ -144,11 +161,9 @@ export function ReportsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Drivers</SelectItem>
-              <SelectItem value="ramesh">Ramesh Yadav</SelectItem>
-              <SelectItem value="suresh">Suresh Patel</SelectItem>
-              <SelectItem value="amit">Amit Sharma</SelectItem>
-              <SelectItem value="vikram">Vikram Singh</SelectItem>
-              <SelectItem value="kisan">Kisan Rao</SelectItem>
+              {filterOptions.drivers.map((d) => (
+                <SelectItem key={d} value={d}>{d}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
 
@@ -160,10 +175,9 @@ export function ReportsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Dealers</SelectItem>
-              <SelectItem value="patel">Patel Tyre House</SelectItem>
-              <SelectItem value="sharma">Sharma Motors</SelectItem>
-              <SelectItem value="ganesh">Ganesh Traders</SelectItem>
-              <SelectItem value="kumar">Kumar Auto</SelectItem>
+              {filterOptions.dealers.map((dl) => (
+                <SelectItem key={dl} value={dl}>{dl}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
 
@@ -187,82 +201,105 @@ export function ReportsPage() {
       <section>
         <div className="flex items-center gap-2 mb-3">
           <div className="w-1 h-5 rounded-full bg-[#1d4ed8]" />
-          <h2 className="text-sm text-foreground">Shipment Report Summary</h2>
+          <h2 className="text-sm text-foreground">
+            Shipment Report Summary
+          </h2>
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-          {/* KPI Cards */}
-          <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 gap-3">
-            {[
-              { label: "Total Shipments",     value: "1,284", trend: "+12.5%", up: true,  icon: Package,      iconBg: "bg-blue-50",    iconColor: "text-blue-600"    },
-              { label: "Active Shipments",     value: "32",    trend: "+14%",   up: true,  icon: Truck,        iconBg: "bg-indigo-50",  iconColor: "text-indigo-600"  },
-              { label: "Completed Shipments",  value: "1,148", trend: "+8.3%",  up: true,  icon: CheckCircle2, iconBg: "bg-emerald-50", iconColor: "text-emerald-600" },
-            ].map((card) => {
-              const Icon = card.icon;
-              return (
-                <div key={card.label} className="bg-white border border-border rounded-xl p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] flex items-center gap-4">
-                  <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center shrink-0", card.iconBg)}>
-                    <Icon className={cn("w-5 h-5", card.iconColor)} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[11px] text-muted-foreground">{card.label}</p>
-                    <p className="text-xl tracking-tight text-foreground">{card.value}</p>
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    {card.up
-                      ? <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
-                      : <TrendingDown className="w-3.5 h-3.5 text-red-500" />}
-                    <span className={cn("text-[11px]", card.up ? "text-emerald-600" : "text-red-600")}>
-                      {card.trend}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
 
-          {/* Shipment Area Chart */}
-          <div className="lg:col-span-3 bg-white border border-border rounded-xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-xs text-foreground">Shipment Volume Trend</h3>
-                <p className="text-[11px] text-muted-foreground mt-0.5">Dispatched, delivered & returned</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[
+            {
+              label: "Total Shipments",
+              value: stats.total.value.toLocaleString(),
+              trend: stats.total.trend,
+              up: stats.total.up,
+              icon: Package,
+              iconBg: "bg-blue-50",
+              iconColor: "text-blue-600",
+            },
+            {
+              label: "Active Shipments",
+              value: stats.active.value.toLocaleString(),
+              trend: stats.active.trend,
+              up: stats.active.up,
+              icon: Truck,
+              iconBg: "bg-indigo-50",
+              iconColor: "text-indigo-600",
+            },
+            {
+              label: "Completed Shipments",
+              value: stats.completed.value.toLocaleString(),
+              trend: stats.completed.trend,
+              up: stats.completed.up,
+              icon: CheckCircle2,
+              iconBg: "bg-emerald-50",
+              iconColor: "text-emerald-600",
+            },
+          ].map((card) => {
+            const Icon = card.icon;
+
+            return (
+              <div
+                key={card.label}
+                className="bg-white border border-border rounded-xl p-4 flex items-center gap-4"
+              >
+                <div
+                  className={cn(
+                    "w-10 h-10 rounded-lg flex items-center justify-center",
+                    card.iconBg
+                  )}
+                >
+                  <Icon className={cn("w-5 h-5", card.iconColor)} />
+                </div>
+
+                <div className="flex-1">
+                  <p className="text-[11px] text-muted-foreground">
+                    {card.label}
+                  </p>
+
+                  <p className="text-xl text-foreground">
+                    {card.value}
+                  </p>
+                </div>
+
+                <Badge
+                  variant="secondary"
+                  className="text-emerald-600 bg-emerald-50"
+                >
+                  {card.trend}
+                </Badge>
               </div>
-              <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200">
-                <Activity className="w-3 h-3 mr-1" /> Live
-              </Badge>
-            </div>
-            <div className="h-[200px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={shipmentSummaryData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="gDispatched" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor="#3b82f6" stopOpacity={0.12} />
-                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="gDelivered" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor="#10b981" stopOpacity={0.12} />
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="gReturned" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor="#f59e0b" stopOpacity={0.12} />
-                      <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#94a3b8" }} dy={6} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#94a3b8" }} />
-                  <Tooltip content={<ChartTooltip />} />
-                  <Legend verticalAlign="top" height={28} iconType="circle" iconSize={7} wrapperStyle={{ fontSize: "10px" }} />
-                  <Area type="monotone" dataKey="dispatched" name="Dispatched" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#gDispatched)" />
-                  <Area type="monotone" dataKey="delivered"  name="Delivered"  stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#gDelivered)" />
-                  <Area type="monotone" dataKey="returned"   name="Returned"   stroke="#f59e0b" strokeWidth={2} fillOpacity={1} fill="url(#gReturned)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+            );
+          })}
         </div>
       </section>
 
+      {/* ── PRINT STYLES ──────────────────────────── */}
+      <style>{`
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+          #printable-report, #printable-report * {
+            visibility: visible;
+          }
+          #printable-report {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            padding: 20px;
+          }
+          .no-print {
+            display: none !important;
+          }
+          /* Ensure colors and backgrounds print */
+          body {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }

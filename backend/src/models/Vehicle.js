@@ -49,6 +49,12 @@ const vehicleSchema = new mongoose.Schema(
       required: true,
       enum: ["Company", "Leased", "Rented"],
     },
+    gpsImei: {
+      type: String,
+      trim: true,
+      default: "",
+      index: true,
+    },
   },
   {
     timestamps: true,

@@ -1,8 +1,7 @@
 import { Truck, MapPin, AlertTriangle, Package } from "lucide-react";
 import { Button } from "../ui/button";
-import { currentShipments } from "./data/dashboardData";
 
-export function LiveShipmentsTable() {
+export function LiveShipmentsTable({ currentShipments = [] }) {
   return (
     <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
       <div className="p-6 border-b border-border flex items-center justify-between bg-white">

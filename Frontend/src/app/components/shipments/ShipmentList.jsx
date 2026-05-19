@@ -144,7 +144,18 @@ export function ShipmentList() {
           editShipment={editShipment}
           onCreated={() => fetchShipments()}
         />
-        <ViewShipmentSheet open={viewSheetOpen} onOpenChange={setViewSheetOpen} shipment={selectedShipment} />
+        <ViewShipmentSheet
+          open={viewSheetOpen}
+          onOpenChange={setViewSheetOpen}
+          shipment={selectedShipment}
+          onStatusChange={(updated) => {
+            // Reflect status change in the list without a full refetch
+            setShipmentData((prev) =>
+              prev.map((s) => (s._id === updated._id ? { ...s, ...updated } : s))
+            );
+          }}
+          onEdit={(s) => { setEditShipment(s); setSheetOpen(true); }}
+        />
       </div>
     </TooltipProvider>
   );

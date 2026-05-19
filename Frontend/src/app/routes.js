@@ -3,7 +3,7 @@ import { Layout } from "./components/Layout";
 import { DashboardPage } from "./components/dashboard/DashboardPage";
 import { ShipmentList } from "./components/shipments/ShipmentList";
 import { TripTrackingPage } from "./components/trips/TripTrackingPage";
-import { VehicleTrackingPage } from "./components/VehicleTrackingPage";
+import { VehicleTrackingPage } from "./components/vehicle-tracking/VehicleTrackingPage";
 import { PlaceholderPage } from "./components/PlaceholderPage";
 import { DriversPage } from "./components/drivers/DriversPage";
 import { VehiclesPage } from "./components/Vechicles_Mgmt/VehiclesPage";
@@ -11,6 +11,8 @@ import { DealersPage } from "./components/DealersPage";
 import { ReportsPage } from "./components/ReportsPage";
 import { ExpensesPage } from "./components/expenses/ExpensesPage";
 import { InvoicesPage } from "./components/invoices/InvoicesPage";
+import { SettingsPage } from "./components/settings/SettingsPage";
+import { HelpSupportPage } from "./components/HelpSupportPage";
 
 export const router = createBrowserRouter([
   {
@@ -29,8 +31,8 @@ export const router = createBrowserRouter([
       { path: "reports", Component: ReportsPage },
       { path: "invoices", Component: InvoicesPage },
       { path: "expenses", Component: ExpensesPage },
-      { path: "settings", Component: PlaceholderPage },
-      { path: "help", Component: PlaceholderPage },
+      { path: "settings", Component: SettingsPage },
+      { path: "help", Component: HelpSupportPage },
       { path: "*", Component: PlaceholderPage },
     ],
   },

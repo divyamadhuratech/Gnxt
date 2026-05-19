@@ -8,9 +8,8 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
-import { weeklyData } from "./data/dashboardData";
 
-export function DashboardChart() {
+export function DashboardChart({ weeklyData = [] }) {
   return (
     <div className="xl:col-span-2 bg-white border border-border rounded-xl p-6 shadow-sm flex flex-col">
       <div className="mb-6">
