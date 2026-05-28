@@ -236,28 +236,6 @@ export default function AddVehicleSheet({
               </Select>
             </div>
 
-            {/* GPS IMEI */}
-            <div className="space-y-1.5">
-              <Label
-                htmlFor="gpsImei"
-                className="text-xs text-muted-foreground uppercase tracking-wider"
-              >
-                GPS Device IMEI
-                <span className="ml-1.5 text-[10px] text-muted-foreground normal-case tracking-normal">(optional)</span>
-              </Label>
-              <Input
-                id="gpsImei"
-                placeholder="e.g. 869833082438627"
-                value={newVehicle.gpsImei || ""}
-                onChange={(e) => handleInputChange("gpsImei", e.target.value)}
-                className="h-10 bg-[#f8f9fb] border-border focus:bg-white transition-colors font-mono text-sm"
-                maxLength={20}
-              />
-              <p className="text-[10px] text-muted-foreground">
-                15-digit IMEI from the GPS tracker device attached to this vehicle.
-              </p>
-            </div>
-
             {/* Info hint - only show when adding new vehicle */}
             {!isEditing && (
               <div className="rounded-lg bg-blue-50 border border-blue-100 px-4 py-3 flex items-start gap-2.5">

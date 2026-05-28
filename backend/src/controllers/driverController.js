@@ -1,4 +1,7 @@
 import Driver from "../models/Driver.js";
+import Vehicle from "../models/Vehicle.js";
+import Shipment from "../models/shipment.model.js";
+import Invoice from "../models/invoice.model.js";
 
 // GET all drivers
 export const getDrivers = async (req, res) => {
@@ -75,10 +78,7 @@ export const updateDriver = async (req, res) => {
 
     // Check if phone already exists for another driver
     if (phone) {
-      const existingPhone = await Driver.findOne({
-        phone,
-        _id: { $ne: id },
-      });
+      const existingPhone = await Driver.findOne({ phone, _id: { $ne: id } });
       if (existingPhone) {
         return res.status(400).json({ message: "Phone number already in use" });
       }
@@ -86,10 +86,7 @@ export const updateDriver = async (req, res) => {
 
     // Check if license already exists for another driver
     if (licenseNumber) {
-      const existingLicense = await Driver.findOne({
-        licenseNumber,
-        _id: { $ne: id },
-      });
+      const existingLicense = await Driver.findOne({ licenseNumber, _id: { $ne: id } });
       if (existingLicense) {
         return res.status(400).json({ message: "License number already in use" });
       }
@@ -97,20 +94,23 @@ export const updateDriver = async (req, res) => {
 
     const updatedDriver = await Driver.findByIdAndUpdate(
       id,
-      {
-        name,
-        age,
-        phone,
-        licenseNumber,
-        driverType,
-        tripStatus,
-        assignedVehicle,
-      },
+      { name, age, phone, licenseNumber, driverType, tripStatus, assignedVehicle },
       { new: true, runValidators: true }
     );
 
     if (!updatedDriver) {
       return res.status(404).json({ message: "Driver not found" });
+    }
+
+    // ── Sync name / phone changes into active Shipment documents ───────────────
+    const shipmentUpdate = {};
+    if (name)  shipmentUpdate.driverName  = name;
+    if (phone) shipmentUpdate.driverPhone = phone;
+    if (Object.keys(shipmentUpdate).length > 0) {
+      await Shipment.updateMany(
+        { driverId: id, status: { $in: ["Pending", "In Transit"] } },
+        shipmentUpdate
+      );
     }
 
     res.json(updatedDriver);
@@ -128,13 +128,41 @@ export const deleteDriver = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const deletedDriver = await Driver.findByIdAndDelete(id);
-
-    if (!deletedDriver) {
+    const driver = await Driver.findById(id).lean();
+    if (!driver) {
       return res.status(404).json({ message: "Driver not found" });
     }
 
-    res.json({ message: "Driver deleted successfully", driver: deletedDriver });
+    // ── Free the vehicle this driver was assigned to ─────────────────────────
+    if (driver.assignedVehicle) {
+      await Vehicle.updateMany(
+        { vehicleNo: driver.assignedVehicle },
+        { availability: "Available", status: "Idle" }
+      );
+    }
+
+    // ── Cancel any active shipments assigned to this driver ─────────────────
+    const activeShipments = await Shipment.find({
+      driverId: id,
+      status: { $in: ["Pending", "In Transit"] },
+    }).lean();
+
+    for (const s of activeShipments) {
+      // Free the vehicle on each orphaned shipment
+      if (s.vehicleId) {
+        await Vehicle.findByIdAndUpdate(s.vehicleId, { availability: "Available", status: "Idle" });
+      }
+      // Reset linked invoices back to Pending
+      const invoiceIds = (s.destinations || []).flatMap((d) => d.invoiceIds || []);
+      if (invoiceIds.length > 0) {
+        await Invoice.updateMany({ _id: { $in: invoiceIds } }, { status: "Pending" });
+      }
+      // Cancel the shipment
+      await Shipment.findByIdAndUpdate(s._id, { status: "Cancelled" });
+    }
+
+    await Driver.findByIdAndDelete(id);
+    res.json({ message: "Driver deleted and related records cleaned up" });
   } catch (error) {
     res.status(500).json({ message: "Error deleting driver", error: error.message });
   }

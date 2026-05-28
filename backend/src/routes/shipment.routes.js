@@ -4,12 +4,15 @@ import {
   getShipments,
   getShipmentById,
   updateShipmentStatus,
+  updatePodStatus,
   updateShipment,
   deleteShipment,
   getInvoicesByPlant,
   getPlantNumbers,
   getNextShipmentId,
   getShipmentsByDriver,
+  updateDestinationDelivery,
+  submitDestinationPod,
 } from "../controllers/shipment.controller.js";
 
 const router = express.Router();
@@ -27,6 +30,9 @@ router.post("/",                              createShipment);
 router.get("/",                               getShipments);
 router.get("/:id",                            getShipmentById);
 router.patch("/:id/status",                   updateShipmentStatus);
+router.patch("/:id/pod",                      updatePodStatus);
+router.patch("/:id/destination/:destId/delivery", updateDestinationDelivery);
+router.patch("/:id/destination/:destId/pod",      submitDestinationPod);
 router.put("/:id",                            updateShipment);
 router.delete("/:id",                         deleteShipment);
 

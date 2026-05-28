@@ -102,21 +102,6 @@ const navSections = [
     ],
   },
   {
-    title: "Master Data",
-    items: [
-      {
-        label: "Dealers",
-        icon: <Store className="w-[18px] h-[18px]" />,
-        href: "/dealers",
-      },
-      {
-        label: "Product Data",
-        icon: <BoxesIcon className="w-[18px] h-[18px]" />,
-        href: "/products",
-      },
-    ],
-  },
-  {
     title: "Analytics",
     items: [
       {

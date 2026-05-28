@@ -12,6 +12,7 @@ const vehicleSchema = new mongoose.Schema(
       required: true,
       unique: true,
       trim: true,
+      uppercase: true,
     },
     type: {
       type: String,
@@ -42,7 +43,7 @@ const vehicleSchema = new mongoose.Schema(
     availability: {
       type: String,
       default: "Available",
-      enum: ["Available", "On Trip", "Scheduled", "Unavailable"],
+      enum: ["Available", "Assigned", "On Trip", "Scheduled", "Unavailable"],
     },
     ownership: {
       type: String,

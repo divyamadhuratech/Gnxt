@@ -1,15 +1,4 @@
-import {
-  Search,
-  Truck,
-  MapPin,
-  Phone,
-  Eye,
-  Route,
-  Navigation,
-  Gauge,
-  AlertTriangle,
-  Locate,
-} from "lucide-react";
+import { Search, Truck, Phone, Eye, Locate } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import {
@@ -48,15 +37,12 @@ export function TripTable({ filteredVehicles, onNavigate }) {
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent bg-[#fafbfc]">
-              <TableHead className="pl-5 w-[130px]">Vehicle</TableHead>
-              <TableHead className="w-[145px]">Driver</TableHead>
-              <TableHead className="w-[130px]">Shipment</TableHead>
-              <TableHead className="w-[175px]">Current Location</TableHead>
-              <TableHead className="w-[85px]">Speed</TableHead>
-              <TableHead className="w-[155px]">Route Progress</TableHead>
-              <TableHead className="w-[75px]">ETA</TableHead>
-              <TableHead className="w-[90px]">Status</TableHead>
-              <TableHead className="w-[80px]">Updated</TableHead>
+              <TableHead className="pl-5 w-[140px]">Vehicle</TableHead>
+              <TableHead className="w-[160px]">Driver</TableHead>
+              <TableHead className="w-[160px]">Shipment</TableHead>
+              <TableHead className="w-[200px]">Destination</TableHead>
+              <TableHead className="w-[120px]">Dispatched At</TableHead>
+              <TableHead className="w-[100px]">Status</TableHead>
               <TableHead className="w-[110px] pr-5 text-center">Action</TableHead>
             </TableRow>
           </TableHeader>
@@ -103,80 +89,23 @@ export function TripTable({ filteredVehicles, onNavigate }) {
                   <TableCell>
                     <div>
                       <span className="text-sm text-[#1d4ed8]">{vehicle.shipmentId}</span>
-                      <p className="text-[11px] text-muted-foreground mt-0.5 truncate max-w-[120px]">
+                      <p className="text-[11px] text-muted-foreground mt-0.5 truncate max-w-[140px]">
                         {vehicle.dealerName}
                       </p>
                     </div>
                   </TableCell>
 
-                  {/* Current Location */}
+                  {/* Destination */}
                   <TableCell>
-                    <div className="flex items-start gap-1.5">
-                      <MapPin className="w-3 h-3 text-muted-foreground mt-0.5 shrink-0" />
-                      <div>
-                        <p className="text-sm text-foreground truncate max-w-[155px]">
-                          {vehicle.currentLocation}
-                        </p>
-                        {vehicle.delay && (
-                          <p className="text-[10px] text-red-600 flex items-center gap-1 mt-0.5">
-                            <AlertTriangle className="w-2.5 h-2.5" />
-                            {vehicle.delay}
-                          </p>
-                        )}
-                      </div>
-                    </div>
+                    <p className="text-sm text-foreground truncate max-w-[185px]">
+                      {vehicle.dealerLocation || "—"}
+                    </p>
                   </TableCell>
 
-                  {/* Speed */}
+                  {/* Dispatched At */}
                   <TableCell>
-                    <div>
-                      <span className="text-sm text-foreground tabular-nums">
-                        {vehicle.currentSpeed}
-                      </span>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">
-                        Avg: {vehicle.avgSpeed}
-                      </p>
-                    </div>
-                  </TableCell>
-
-                  {/* Route Progress */}
-                  <TableCell>
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] text-muted-foreground tabular-nums">
-                          {vehicle.distanceCovered}/{vehicle.totalDistance} km
-                        </span>
-                        <span className="text-[11px] text-foreground tabular-nums">
-                          {vehicle.percentComplete}%
-                        </span>
-                      </div>
-                      <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all ${
-                            vehicle.percentComplete === 100
-                              ? "bg-emerald-500"
-                              : vehicle.percentComplete > 0
-                                ? "bg-[#1d4ed8]"
-                                : "bg-muted"
-                          }`}
-                          style={{ width: `${vehicle.percentComplete}%` }}
-                        />
-                      </div>
-                    </div>
-                  </TableCell>
-
-                  {/* ETA */}
-                  <TableCell>
-                    <span
-                      className={`text-sm tabular-nums ${
-                        vehicle.eta === "Delivered"
-                          ? "text-emerald-600"
-                          : vehicle.eta === "Cancelled"
-                            ? "text-red-500"
-                            : "text-foreground"
-                      }`}
-                    >
-                      {vehicle.eta}
+                    <span className="text-sm text-foreground tabular-nums">
+                      {vehicle.departedTime || "—"}
                     </span>
                   </TableCell>
 
@@ -185,18 +114,9 @@ export function TripTable({ filteredVehicles, onNavigate }) {
                     <span
                       className={`inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border ${ss.bg} ${ss.text}`}
                     >
-                      <span
-                        className={`w-1.5 h-1.5 rounded-full ${ss.dot} ${
-                          vehicle.status === "Moving" ? "animate-pulse" : ""
-                        }`}
-                      />
+                      <span className={`w-1.5 h-1.5 rounded-full ${ss.dot}`} />
                       {vehicle.status}
                     </span>
-                  </TableCell>
-
-                  {/* Last Updated */}
-                  <TableCell>
-                    <span className="text-xs text-muted-foreground">{vehicle.lastUpdated}</span>
                   </TableCell>
 
                   {/* View Tracking Button */}
@@ -220,7 +140,7 @@ export function TripTable({ filteredVehicles, onNavigate }) {
 
             {filteredVehicles.length === 0 && (
               <TableRow>
-                <TableCell colSpan={10} className="h-32 text-center text-muted-foreground">
+                <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
                   <div className="flex flex-col items-center gap-2">
                     <Truck className="w-8 h-8 text-muted-foreground/40" />
                     <p className="text-sm">No vehicles found</p>
@@ -236,39 +156,10 @@ export function TripTable({ filteredVehicles, onNavigate }) {
       </div>
 
       {/* Table Footer */}
-      <div className="border-t border-border px-5 py-3 flex items-center justify-between bg-[#fafbfc]">
+      <div className="border-t border-border px-5 py-3 bg-[#fafbfc]">
         <p className="text-xs text-muted-foreground">
           {filteredVehicles.length} vehicle{filteredVehicles.length !== 1 ? "s" : ""}
         </p>
-        <div className="flex items-center gap-5 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1.5">
-            <Route className="w-3 h-3" />
-            Total Distance:{" "}
-            <span className="text-foreground">
-              {filteredVehicles.reduce((sum, v) => sum + v.totalDistance, 0).toLocaleString()} km
-            </span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <Navigation className="w-3 h-3" />
-            Covered:{" "}
-            <span className="text-foreground">
-              {filteredVehicles.reduce((sum, v) => sum + v.distanceCovered, 0).toLocaleString()} km
-            </span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <Gauge className="w-3 h-3" />
-            Avg Speed:{" "}
-            <span className="text-foreground">
-              {Math.round(
-                filteredVehicles
-                  .filter((v) => v.status === "Moving")
-                  .reduce((sum, v) => sum + parseInt(v.currentSpeed), 0) /
-                  (filteredVehicles.filter((v) => v.status === "Moving").length || 1),
-              )}{" "}
-              km/h
-            </span>
-          </span>
-        </div>
       </div>
     </div>
   );

@@ -19,33 +19,54 @@ export const statusConfig = {
   },
 };
 
-export function getPODConfig(status) {
-  switch (status) {
-    case "Delivered":
-      return {
-        label: "Signed",
-        icon: true,
-        className: "bg-emerald-50 text-emerald-700 border-emerald-200",
-      };
-    case "In Transit":
-      return {
-        label: "Pending",
-        icon: false,
-        className: "bg-amber-50 text-amber-700 border-amber-200",
-      };
-    case "Pending":
-      return {
-        label: "Not Generated",
-        icon: false,
-        className: "bg-gray-50 text-gray-500 border-gray-200",
-      };
-    default:
-      return {
-        label: "N/A",
-        icon: false,
-        className: "bg-gray-50 text-gray-400 border-gray-200",
-      };
+export function getPODConfig(status, podStatus) {
+  // podStatus here is the computed aggregate across all destinations
+  if (podStatus === "Submitted") {
+    return {
+      label: "Signed",
+      icon: true,
+      className: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    };
   }
+  if (podStatus === "Partial") {
+    return {
+      label: "Partial",
+      icon: false,
+      className: "bg-blue-50 text-blue-700 border-blue-200",
+    };
+  }
+  if (podStatus === "Pending" || status === "In Transit") {
+    return {
+      label: "Pending",
+      icon: false,
+      className: "bg-amber-50 text-amber-700 border-amber-200",
+    };
+  }
+  return {
+    label: "Not Generated",
+    icon: false,
+    className: "bg-gray-50 text-gray-500 border-gray-200",
+  };
+}
+
+/**
+ * Compute aggregate POD status across all destinations of a shipment.
+ * - "Submitted"  → all destinations have podStatus "Submitted"
+ * - "Partial"    → some submitted, some not
+ * - "Pending"    → at least one delivered but no POD submitted yet
+ * - "Not Generated" → no delivery confirmed yet
+ */
+export function getAggregatePodStatus(shipment) {
+  const dests = shipment?.destinations ?? [];
+  if (dests.length === 0) return "Not Generated";
+
+  const submitted = dests.filter(d => d.podStatus === "Submitted").length;
+  const delivered = dests.filter(d => d.isDelivered).length;
+
+  if (submitted === dests.length) return "Submitted";
+  if (submitted > 0) return "Partial";
+  if (delivered > 0) return "Pending";
+  return "Not Generated";
 }
 
 export function isWithinDateRange(date, filter) {

@@ -6,14 +6,14 @@ export const statusStyles = {
     text: "text-emerald-700",
     dot: "bg-emerald-500",
   },
-  Idle: {
+  "Waiting for Dispatch": {
     bg: "bg-amber-50 border-amber-200",
     text: "text-amber-700",
     dot: "bg-amber-500",
   },
-  Stopped: {
-    bg: "bg-red-50 border-red-200",
-    text: "text-red-700",
-    dot: "bg-red-500",
+  Returned: {
+    bg: "bg-violet-50 border-violet-200",
+    text: "text-violet-700",
+    dot: "bg-violet-500",
   },
 };

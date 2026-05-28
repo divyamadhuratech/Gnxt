@@ -4,7 +4,7 @@ import { Button } from "../ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "../ui/sheet";
 import { ShipmentOverview }     from "./view/ShipmentOverview";
 import { TrackingSection }      from "./view/TrackingSection";
-import { PODSection }           from "./view/PODSection";
+
 import { VehicleDriverDetails } from "./view/VehicleDriverDetails";
 import { ItemsBreakdown }       from "./view/ItemsBreakdown";
 import { ShipmentTimeline }     from "./view/ShipmentTimeline";
@@ -117,30 +117,64 @@ function buildDetail(s, liveGps) {
 }
 
 export function ViewShipmentSheet({ open, onOpenChange, shipment, onStatusChange, onEdit }) {
-  const [podImages, setPodImages]             = useState([]);
-  const [podRemarks, setPodRemarks]           = useState("");
-  const [podReceiverName, setPodReceiverName] = useState("");
-  const [podUploading, setPodUploading]       = useState(false);
   const [podViewImage, setPodViewImage]       = useState(null);
   const [fullShipment, setFullShipment]       = useState(null);
   const [loadingDetail, setLoadingDetail]     = useState(false);
   const [liveGps, setLiveGps]                 = useState(null);
   const [gpsError, setGpsError]               = useState(null);
-  const fileInputRef  = useRef(null);
   const gpsIntervalRef = useRef(null);
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
+  const [allDestinationsDelivered, setAllDestinationsDelivered] = useState(false);
 
   /* ── Fetch shipment detail ── */
+  const refreshShipment = useCallback(async (showLoader = false) => {
+    if (!shipment?._id) return;
+    if (showLoader) setLoadingDetail(true);
+    try {
+      const res  = await fetch(`${API_BASE_URL}/shipments/${shipment._id}`);
+      const json = await res.json();
+      if (json.success && json.data) {
+        setFullShipment(json.data);
+        // Enable "Shipment Completed" if all destinations are delivered
+        if (json.data.destinations?.every(d => d.isDelivered)) {
+          setAllDestinationsDelivered(true);
+        }
+        if (json.data.status === "Delivered") setAllDestinationsDelivered(true);
+        if (onStatusChange) onStatusChange(json.data);
+      } else {
+        setFullShipment((prev) => prev ?? shipment);
+      }
+    } catch (err) {
+      console.error("Failed to refresh shipment", err);
+      setFullShipment((prev) => prev ?? shipment);
+    } finally {
+      setLoadingDetail(false);
+    }
+  }, [shipment?._id]); // intentionally omit onStatusChange to avoid infinite loop
+
   useEffect(() => {
-    if (!open || !shipment) return;
+    if (!open || !shipment?._id) return;
     setFullShipment(null);
     setLiveGps(null);
     setGpsError(null);
+    setAllDestinationsDelivered(false);
     setLoadingDetail(true);
     fetch(`${API_BASE_URL}/shipments/${shipment._id}`)
       .then((r) => r.json())
-      .then((res) => { if (res.success) setFullShipment(res.data); else setFullShipment(shipment); })
+      .then((json) => {
+        if (json.success && json.data) {
+          setFullShipment(json.data);
+          if (json.data.status === "Delivered") setAllDestinationsDelivered(true);
+          if (json.data.destinations?.every(d => d.isDelivered)) setAllDestinationsDelivered(true);
+          if (onStatusChange) onStatusChange(json.data);
+        } else {
+          setFullShipment(shipment);
+        }
+      })
       .catch(() => setFullShipment(shipment))
       .finally(() => setLoadingDetail(false));
+  // Only re-run when the sheet opens or the shipment ID changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, shipment?._id]);
 
   /* ── Poll live GPS while sheet is open ── */
@@ -227,21 +261,7 @@ export function ViewShipmentSheet({ open, onOpenChange, shipment, onStatusChange
             </SheetDescription>
           </div>
           <div className="flex items-center gap-3">
-            {/* GPS live badge — clearly shows real vs no-signal */}
-            {s.status === "In Transit" && (
-              liveGps ? (
-                <div className="flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700">
-                  <Wifi className="w-3 h-3" />
-                  <span className="animate-pulse w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
-                  GPS Live · {(liveGps.speed ?? 0).toFixed(1)} km/h
-                </div>
-              ) : (
-                <div className="flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-full bg-gray-50 border border-gray-200 text-gray-500">
-                  <WifiOff className="w-3 h-3" />
-                  No GPS Signal
-                </div>
-              )
-            )}
+            {/* GPS live badge removed */}
             <div className="bg-[#f0f4ff] border border-[#c7d7fe] rounded-lg px-4 py-2">
               <p className="text-[10px] text-[#4b6cb7] tracking-wide uppercase">Shipment ID</p>
               <p className="text-sm text-[#1d4ed8] tracking-tight">{s.shipmentId ?? s._id}</p>
@@ -262,93 +282,9 @@ export function ViewShipmentSheet({ open, onOpenChange, shipment, onStatusChange
           ) : detail ? (
             <div className="max-w-6xl mx-auto px-8 py-6 space-y-8">
 
-              {/* ── GPS data verification panel ── */}
-              {s.status === "In Transit" && (
-                liveGps ? (
-                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-5 py-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Wifi className="w-4 h-4 text-emerald-600" />
-                      <span className="text-sm text-emerald-800">Live GPS Data — Device {liveGps.deviceId}</span>
-                      <span className="ml-auto text-[10px] text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200">
-                        REAL DATA
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                      <div className="bg-white rounded-lg px-3 py-2 border border-emerald-100">
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Coordinates</p>
-                        <p className="text-foreground mt-0.5 tabular-nums">
-                          {liveGps.lat?.toFixed(5)}° N<br />{liveGps.lng?.toFixed(5)}° E
-                        </p>
-                      </div>
-                      <div className="bg-white rounded-lg px-3 py-2 border border-emerald-100">
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Speed</p>
-                        <p className="text-foreground mt-0.5 tabular-nums text-base">
-                          {(liveGps.speed ?? 0).toFixed(1)} km/h
-                        </p>
-                        <p className="text-[10px] text-muted-foreground">
-                          {liveGps.vehicleStatus}
-                        </p>
-                      </div>
-                      <div className="bg-white rounded-lg px-3 py-2 border border-emerald-100">
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">GPS Quality</p>
-                        <p className="text-foreground mt-0.5">
-                          {accLabel(liveGps.acc)} accuracy
-                        </p>
-                        <p className="text-[10px] text-muted-foreground">
-                          {liveGps.satellites} satellites · {liveGps.altitude?.toFixed(1)} m alt
-                        </p>
-                      </div>
-                      <div className="bg-white rounded-lg px-3 py-2 border border-emerald-100">
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Heading · Fix Time</p>
-                        <p className="text-foreground mt-0.5">{liveGps.heading?.toFixed(1)}°</p>
-                        <p className="text-[10px] text-muted-foreground">
-                          {liveGps.fixTime
-                            ? new Date(liveGps.fixTime).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
-                            : "—"}
-                        </p>
-                      </div>
-                    </div>
-                    {/* Google Maps verification link */}
-                    <a
-                      href={`https://www.google.com/maps?q=${liveGps.lat},${liveGps.lng}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-3 inline-flex items-center gap-1.5 text-[11px] text-emerald-700 hover:text-emerald-900 underline underline-offset-2"
-                    >
-                      <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                      Verify on Google Maps → {liveGps.lat?.toFixed(5)}, {liveGps.lng?.toFixed(5)}
-                    </a>
-                  </div>
-                ) : (
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 flex items-center gap-3">
-                    <WifiOff className="w-4 h-4 text-amber-600 shrink-0" />
-                    <div>
-                      <p className="text-sm text-amber-800">
-                        {gpsError === "no_data"
-                          ? "No GPS fix received yet from this vehicle's device."
-                          : "GPS service unavailable — check backend connection."}
-                      </p>
-                      <p className="text-xs text-amber-600 mt-0.5">
-                        Vehicle: {viewShipment.vehicleNumber} · Polling every 10 s
-                      </p>
-                    </div>
-                  </div>
-                )
-              )}
-
               <ShipmentOverview shipment={viewShipment} detail={detail} totalQty={totalQty} totalWt={totalWt} />
-              <TrackingSection  shipment={viewShipment} detail={detail} />
-              <PODSection
-                shipment={viewShipment} detail={detail} totalQty={totalQty}
-                podImages={podImages}             setPodImages={setPodImages}
-                podRemarks={podRemarks}           setPodRemarks={setPodRemarks}
-                podReceiverName={podReceiverName} setPodReceiverName={setPodReceiverName}
-                podUploading={podUploading}       setPodUploading={setPodUploading}
-                podViewImage={podViewImage}       setPodViewImage={setPodViewImage}
-                fileInputRef={fileInputRef}
-              />
               <VehicleDriverDetails shipment={viewShipment} detail={detail} loadUtil={loadUtil} />
-              <ItemsBreakdown       shipment={viewShipment} detail={detail} totalQty={totalQty} totalWt={totalWt} />
+              <ItemsBreakdown       shipment={viewShipment} detail={detail} totalQty={totalQty} totalWt={totalWt} setPodViewImage={setPodViewImage} onStatusUpdate={handleStatusUpdate} onAllDelivered={() => setAllDestinationsDelivered(true)} onRefresh={refreshShipment} />
               <ShipmentTimeline     detail={detail} />
 
               {podViewImage && (
@@ -374,7 +310,7 @@ export function ViewShipmentSheet({ open, onOpenChange, shipment, onStatusChange
           <div className="flex items-center gap-3">
             {s.status === "Pending" && (
               <>
-                <Button variant="outline" className="border-border gap-2" onClick={() => handleStatusUpdate("Cancelled")}>
+                <Button variant="outline" className="border-border gap-2 text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => setCancelConfirmOpen(true)}>
                   <XCircle className="w-4 h-4" />Cancel Shipment
                 </Button>
                 <Button className="gap-2 bg-[#1d4ed8] hover:bg-[#1e40af] text-white shadow-sm" onClick={() => { if (onEdit) onEdit(s); onOpenChange(false); }}>
@@ -384,27 +320,65 @@ export function ViewShipmentSheet({ open, onOpenChange, shipment, onStatusChange
             )}
             {s.status === "In Transit" && (
               <>
-                <Button variant="outline" className="border-border gap-2">
-                  <Phone className="w-4 h-4" />Contact Driver
+                <Button variant="outline" className="border-border gap-2 text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => setCancelConfirmOpen(true)}>
+                  <XCircle className="w-4 h-4" />Cancel Shipment
                 </Button>
-                <Button className="gap-2 bg-[#1d4ed8] hover:bg-[#1e40af] text-white shadow-sm" onClick={() => handleStatusUpdate("Delivered")}>
-                  <CheckCircle2 className="w-4 h-4" />Mark as Delivered
+                <Button
+                  className={`gap-2 text-white shadow-sm ${
+                    allDestinationsDelivered
+                      ? "bg-emerald-600 hover:bg-emerald-700"
+                      : "bg-emerald-300 cursor-not-allowed"
+                  }`}
+                  disabled={!allDestinationsDelivered}
+                  title={allDestinationsDelivered ? "Mark shipment as completed" : "Confirm delivery success for all destinations first"}
+                  onClick={() => allDestinationsDelivered && handleStatusUpdate("Delivered")}
+                >
+                  <CheckCircle2 className="w-4 h-4" />Shipment Completed
                 </Button>
               </>
             )}
             {s.status === "Delivered" && (
               <>
-                <Button variant="outline" className="border-border gap-2"><FileText className="w-4 h-4" />View Proof of Delivery</Button>
-                <Button className="gap-2 bg-[#1d4ed8] hover:bg-[#1e40af] text-white shadow-sm"><Download className="w-4 h-4" />Download Invoice</Button>
+                <Button variant="outline" className="border-border gap-2" onClick={() => window.print()}><FileText className="w-4 h-4" />Print Details</Button>
               </>
             )}
             {s.status === "Cancelled" && (
-              <Button className="gap-2 bg-[#1d4ed8] hover:bg-[#1e40af] text-white shadow-sm" onClick={() => { if (onEdit) onEdit(s); onOpenChange(false); }}>
-                <Edit className="w-4 h-4" />Re-create Shipment
+              <Button variant="outline" className="border-border gap-2 text-red-600 cursor-not-allowed">
+                <XCircle className="w-4 h-4" />Shipment Cancelled
               </Button>
             )}
           </div>
         </div>
+      {cancelConfirmOpen && (
+        <div className="fixed inset-0 z-[9999] bg-black/60 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 text-center">
+            <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+              <XCircle className="w-6 h-6 text-red-600" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Cancel Shipment?</h3>
+            <p className="text-sm text-gray-500 mb-6">
+              Are you sure you want to cancel this shipment? This action will:
+              <br/><br/>
+              • Free the assigned driver and vehicle
+              <br/>
+              • Reset the invoice status to pending
+              <br/><br/>
+              This cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-center">
+              <Button variant="outline" onClick={() => setCancelConfirmOpen(false)}>
+                No, Keep it
+              </Button>
+              <Button className="bg-red-600 hover:bg-red-700 text-white" onClick={() => {
+                setCancelConfirmOpen(false);
+                handleStatusUpdate("Cancelled");
+              }}>
+                Yes, Cancel Shipment
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
       </SheetContent>
     </Sheet>
   );

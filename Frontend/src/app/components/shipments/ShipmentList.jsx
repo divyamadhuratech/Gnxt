@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useLocation } from "react-router";
 import { TooltipProvider } from "../ui/tooltip";
 import ShipmentHeader from "./ShipmentHeader";
 import ShipmentFiltersBar from "./ShipmentFiltersBar";
@@ -10,6 +11,7 @@ import { getPODConfig, isWithinDateRange } from "./utils/shipmentStyles";
 
 export function ShipmentList() {
   const { shipmentData, setShipmentData, loading, fetchShipments } = useShipments();
+  const location = useLocation();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [viewSheetOpen, setViewSheetOpen] = useState(false);
   const [selectedShipment, setSelectedShipment] = useState(null);
@@ -27,6 +29,29 @@ export function ShipmentList() {
   useEffect(() => {
     setTotal(shipmentData.length);
   }, [shipmentData]);
+
+  // Auto-open a specific shipment if navigated from Trip Tracking
+  useEffect(() => {
+    const openId = location.state?.openShipmentId;
+    if (openId && shipmentData.length > 0) {
+      const match = shipmentData.find((s) => s._id === openId);
+      if (match) {
+        setSelectedShipment(match);
+        setViewSheetOpen(true);
+        // Clear state so re-renders don't re-open
+        window.history.replaceState({}, document.title);
+      }
+    }
+  }, [location.state, shipmentData]);
+
+  // Auto-open Create Shipment Sheet if navigated from Dashboard
+  useEffect(() => {
+    if (location.state?.openCreateSheet) {
+      setSheetOpen(true);
+      // Clear state so re-renders don't re-open
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   const filteredShipments = useMemo(() => {
     const list = Array.isArray(shipmentData) ? shipmentData : [];

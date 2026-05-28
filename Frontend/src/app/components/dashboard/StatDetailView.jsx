@@ -1,18 +1,22 @@
+import { useState, useMemo } from "react";
 import { format } from "date-fns";
 import {
   ArrowLeft,
   Search,
   History,
-  FileCheck,
   Eye,
   Package,
   CheckCircle2,
   Clock,
   Calendar as CalendarIcon,
+  XCircle,
+  Truck,
+  FileCheck,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
-import { Badge } from "../ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
+import { Calendar } from "../ui/calendar";
 import {
   Select,
   SelectContent,
@@ -20,8 +24,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
-import { Calendar } from "../ui/calendar";
 import {
   Table,
   TableBody,
@@ -32,22 +34,149 @@ import {
 } from "../ui/table";
 import { cn } from "../ui/utils";
 
-export function StatDetailView({
-  activeStatView,
-  onBack,
-  tableData,
-  searchQuery,
-  setSearchQuery,
-  podFilter,
-  setPodFilter,
-  dateFilter,
-  setDateFilter,
-  showHistory,
-  setShowHistory,
-}) {
+// ─── Status badge ────────────────────────────────────────────────────────────
+function StatusBadge({ status }) {
+  const map = {
+    "In Transit": { cls: "bg-blue-50 text-blue-700 border-blue-200",         icon: <Truck className="w-3 h-3" /> },
+    "Pending":    { cls: "bg-amber-50 text-amber-700 border-amber-200",       icon: <Clock className="w-3 h-3" /> },
+    "Cancelled":  { cls: "bg-red-50 text-red-700 border-red-200",             icon: <XCircle className="w-3 h-3" /> },
+    "Delivered":  { cls: "bg-emerald-50 text-emerald-700 border-emerald-200", icon: <CheckCircle2 className="w-3 h-3" /> },
+  };
+  const cfg = map[status] || { cls: "bg-gray-50 text-gray-600 border-gray-200", icon: null };
+  return (
+    <span className={`inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full border font-medium ${cfg.cls}`}>
+      {cfg.icon}{status}
+    </span>
+  );
+}
+
+// ─── POD badge ───────────────────────────────────────────────────────────────
+function PodBadge({ status }) {
+  if (status === "Signed")
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200 font-medium">
+        <CheckCircle2 className="w-3 h-3" />Signed
+      </span>
+    );
+  if (status === "Not Generated")
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full border bg-gray-50 text-gray-600 border-gray-200 font-medium">
+        <XCircle className="w-3 h-3" />Not Generated
+      </span>
+    );
+  return (
+    <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full border bg-amber-50 text-amber-700 border-amber-200 font-medium">
+      <Clock className="w-3 h-3" />Pending
+    </span>
+  );
+}
+
+// ─── Column definitions ───────────────────────────────────────────────────────
+const BASE_COLS = [
+  {
+    label: "Shipment ID",
+    key: "id",
+    render: (v, row) => (
+      <>
+        <span className="font-medium text-[#1d4ed8]">{v}</span>
+        <p className="text-xs text-muted-foreground mt-0.5">{row.items}</p>
+      </>
+    ),
+  },
+  { label: "Destination", key: "destination" },
+  { label: "Driver",      key: "driver" },
+  { label: "Vehicle",     key: "vehicle" },
+];
+
+const VIEW_COLS = {
+  "Active Shipments": [
+    ...BASE_COLS,
+    { label: "ETA",    key: "eta",    render: (v) => <span className="text-sm text-muted-foreground">{v}</span> },
+    { label: "Status", key: "status", render: (v) => <StatusBadge status={v} /> },
+    { label: "",       key: "_view",  render: () => <Button variant="ghost" size="icon" className="w-8 h-8 text-muted-foreground hover:text-foreground"><Eye className="w-4 h-4" /></Button> },
+  ],
+  "Pending Dispatch": [
+    ...BASE_COLS,
+    { label: "Status", key: "status", render: (v) => <StatusBadge status={v} /> },
+    { label: "",       key: "_view",  render: () => <Button variant="ghost" size="icon" className="w-8 h-8 text-muted-foreground hover:text-foreground"><Eye className="w-4 h-4" /></Button> },
+  ],
+  "Cancelled Dispatch": [
+    ...BASE_COLS,
+    { label: "Status", key: "status", render: (v) => <StatusBadge status={v} /> },
+    { label: "",       key: "_view",  render: () => <Button variant="ghost" size="icon" className="w-8 h-8 text-muted-foreground hover:text-foreground"><Eye className="w-4 h-4" /></Button> },
+  ],
+  "Deliveries Today": [
+    ...BASE_COLS,
+    { label: "Delivered", key: "eta",       render: (v) => <span className="text-sm text-muted-foreground">{v}</span> },
+    { label: "POD",       key: "podStatus", render: (v) => <PodBadge status={v} /> },
+    { label: "",          key: "_view",     render: () => <Button variant="ghost" size="icon" className="w-8 h-8 text-muted-foreground hover:text-foreground"><Eye className="w-4 h-4" /></Button> },
+  ],
+};
+
+// ─── Views that support history toggle ───────────────────────────────────────
+const HAS_HISTORY = new Set(["Active Shipments", "Deliveries Today"]);
+// Views that support POD filter
+const HAS_POD_FILTER = new Set(["Deliveries Today"]);
+
+// ─── Main component ───────────────────────────────────────────────────────────
+export function StatDetailView({ activeStatView, viewData, onBack }) {
+  // All filter state lives here — stable, no parent re-renders
+  const [searchQuery, setSearchQuery]   = useState("");
+  const [podFilter, setPodFilter]       = useState("all");
+  const [dateFilter, setDateFilter]     = useState(undefined);
+  const [showHistory, setShowHistory]   = useState(false);
+
+  const columns   = VIEW_COLS[activeStatView] || [];
+  const hasHistory   = HAS_HISTORY.has(activeStatView);
+  const hasPodFilter = HAS_POD_FILTER.has(activeStatView);
+
+  // Pick current vs history dataset
+  const baseData = showHistory
+    ? (viewData.history || [])
+    : (viewData.current || []);
+
+  // Apply filters
+  const tableData = useMemo(() => {
+    return baseData.filter((item) => {
+      // Search
+      const q = searchQuery.toLowerCase();
+      const matchesSearch =
+        item.id.toLowerCase().includes(q) ||
+        item.driver.toLowerCase().includes(q) ||
+        item.vehicle.toLowerCase().includes(q);
+
+      // POD filter (Deliveries Today only)
+      const matchesPod =
+        !hasPodFilter ||
+        podFilter === "all" ||
+        item.podStatus === podFilter;
+
+      // Date filter (history mode)
+      let matchesDate = true;
+      if (showHistory && dateFilter) {
+        const itemDate = item.deliveryDate || item.dispatchDate;
+        if (itemDate) {
+          const d = new Date(itemDate);
+          d.setHours(0, 0, 0, 0);
+          matchesDate = d.toDateString() === dateFilter.toDateString();
+        }
+      }
+
+      return matchesSearch && matchesPod && matchesDate;
+    });
+  }, [baseData, searchQuery, podFilter, dateFilter, showHistory, hasPodFilter]);
+
+  const handleHistoryToggle = () => {
+    setShowHistory((prev) => {
+      if (prev) setDateFilter(undefined); // clear date when leaving history
+      return !prev;
+    });
+  };
+
   return (
     <div className="p-8 max-w-[1600px] mx-auto space-y-6 h-full flex flex-col">
-      {/* Header with Back Button */}
+
+      {/* ── Header ── */}
       <div className="flex items-center gap-4">
         <Button
           variant="ghost"
@@ -62,51 +191,59 @@ export function StatDetailView({
             {activeStatView}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Detailed view of all {activeStatView.toLowerCase()}.
+            {showHistory
+              ? `Historical records for ${activeStatView.toLowerCase()}.`
+              : `Detailed view of all ${activeStatView.toLowerCase()}.`}
           </p>
         </div>
       </div>
 
-      {/* Filters */}
+      {/* ── Filters ── */}
       <div className="flex items-center gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-[280px] max-w-md">
+
+        {/* Search */}
+        <div className="relative flex-1 min-w-[260px] max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Search by Invoice ID, Driver, Vehicle..."
+            placeholder="Search by Shipment ID, Driver, Vehicle..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9 h-9 bg-white border-border"
           />
         </div>
 
-        <Select value={podFilter} onValueChange={setPodFilter}>
-          <SelectTrigger className="w-[160px] h-9 bg-white border-border">
-            <div className="flex items-center gap-2">
-              <FileCheck className="w-3.5 h-3.5 text-muted-foreground" />
-              <SelectValue placeholder="POD Status" />
-            </div>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All PODs</SelectItem>
-            <SelectItem value="Signed">Signed</SelectItem>
-            <SelectItem value="Pending">Pending</SelectItem>
-            <SelectItem value="Not Generated">Not Generated</SelectItem>
-          </SelectContent>
-        </Select>
+        {/* POD filter — Deliveries Today only */}
+        {hasPodFilter && (
+          <Select value={podFilter} onValueChange={setPodFilter}>
+            <SelectTrigger className="w-[170px] h-9 bg-white border-border">
+              <div className="flex items-center gap-2">
+                <FileCheck className="w-3.5 h-3.5 text-muted-foreground" />
+                <SelectValue placeholder="All PODs" />
+              </div>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All PODs</SelectItem>
+              <SelectItem value="Signed">Signed</SelectItem>
+              <SelectItem value="Pending">Pending</SelectItem>
+              <SelectItem value="Not Generated">Not Generated</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
 
-        {showHistory && (
+        {/* Date picker — history mode only */}
+        {hasHistory && showHistory && (
           <div className="flex items-center gap-2">
             <Popover>
               <PopoverTrigger asChild>
                 <Button
-                  variant={"outline"}
+                  variant="outline"
                   className={cn(
-                    "w-[240px] justify-start text-left font-normal bg-white h-9 border-border",
-                    !dateFilter && "text-muted-foreground",
+                    "w-[220px] justify-start text-left font-normal bg-white h-9 border-border",
+                    !dateFilter && "text-muted-foreground"
                   )}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {dateFilter ? format(dateFilter, "PPP") : <span>All Time</span>}
+                  {dateFilter ? format(dateFilter, "PPP") : "All Time"}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
@@ -125,254 +262,91 @@ export function StatDetailView({
                 onClick={() => setDateFilter(undefined)}
                 className="h-8 text-xs text-muted-foreground hover:text-foreground"
               >
-                Clear Date
+                Clear
               </Button>
             )}
           </div>
         )}
 
-        <Button
-          variant={showHistory ? "default" : "outline"}
-          onClick={() => {
-            setShowHistory(!showHistory);
-            if (showHistory) setDateFilter(undefined);
-          }}
-          className={
-            showHistory
-              ? "bg-[#1d4ed8] text-white hover:bg-[#1e40af]"
-              : "bg-white"
-          }
-        >
-          <History className="w-4 h-4 mr-2" />
-          History
-        </Button>
+        {/* History toggle */}
+        {hasHistory && (
+          <Button
+            variant={showHistory ? "default" : "outline"}
+            onClick={handleHistoryToggle}
+            className={
+              showHistory
+                ? "bg-[#1d4ed8] text-white hover:bg-[#1e40af]"
+                : "bg-white border-border"
+            }
+          >
+            <History className="w-4 h-4 mr-2" />
+            {showHistory ? "Current" : "History"}
+          </Button>
+        )}
       </div>
 
-      {/* Data Table */}
+      {/* ── Table ── */}
       <div className="bg-white rounded-lg border border-border shadow-[0_1px_3px_rgba(0,0,0,0.04)] flex-1 overflow-hidden flex flex-col">
         <div className="flex-1 overflow-auto">
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent bg-[#fafbfc]">
-
-                {/* 1. Active Shipments */}
-                {activeStatView === "Active Shipments" && (
-                  <>
-                    <TableHead className="pl-5 w-[150px]">Invoice Number</TableHead>
-                    <TableHead className="w-[200px]">Dealer & Location</TableHead>
-                    <TableHead className="w-[150px]">Weight</TableHead>
-                    <TableHead className="w-[160px]">Driver Info</TableHead>
-                    <TableHead className="w-[160px]">Vehicle Info</TableHead>
-                    <TableHead className="w-[110px]">Date</TableHead>
-                    <TableHead className="w-[110px]">POD</TableHead>
-                    <TableHead className="w-[60px] pr-5 text-center">View</TableHead>
-                  </>
-                )}
-
-                {/* 2. Pending PODs / LRs */}
-                {activeStatView === "Pending PODs / LRs" && (
-                  <>
-                    <TableHead className="pl-5">Invoice No</TableHead>
-                    <TableHead>Dealer</TableHead>
-                    <TableHead>Location</TableHead>
-                    <TableHead>Dispatch Date</TableHead>
-                    <TableHead>Driver</TableHead>
-                    <TableHead>Vehicle</TableHead>
-                    <TableHead>POD Status</TableHead>
-                    <TableHead className="pr-5">LR Status</TableHead>
-                  </>
-                )}
-
-                {/* 3. Pending Dispatch */}
-                {activeStatView === "Pending Dispatch" && (
-                  <>
-                    <TableHead className="pl-5">Invoice No</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Customer</TableHead>
-                    <TableHead>Location</TableHead>
-                    <TableHead>Weight</TableHead>
-                    <TableHead>Quantity</TableHead>
-                    <TableHead>Planned Vehicle</TableHead>
-                    <TableHead className="pr-5">Dispatch Status</TableHead>
-                  </>
-                )}
-
-                {/* 4. Cancelled Dispatch */}
-                {activeStatView === "Cancelled Dispatch" && (
-                  <>
-                    <TableHead className="pl-5">Invoice No</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Customer</TableHead>
-                    <TableHead>Location</TableHead>
-                    <TableHead>Reason</TableHead>
-                    <TableHead className="pr-5">Cancelled By</TableHead>
-                  </>
-                )}
-
-                {/* 5. Pending Delivery */}
-                {activeStatView === "Pending Delivery" && (
-                  <>
-                    <TableHead className="pl-5">Invoice No</TableHead>
-                    <TableHead>Dealer</TableHead>
-                    <TableHead>Location</TableHead>
-                    <TableHead>Dispatch Date</TableHead>
-                    <TableHead>Expected Delivery</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="pr-5">Delay (if any)</TableHead>
-                  </>
-                )}
-
-                {/* 6. Deliveries Today */}
-                {activeStatView === "Deliveries Today" && (
-                  <>
-                    <TableHead className="pl-5">Invoice No</TableHead>
-                    <TableHead>Dealer</TableHead>
-                    <TableHead>Location</TableHead>
-                    <TableHead>Delivered Time</TableHead>
-                    <TableHead>Driver</TableHead>
-                    <TableHead>Vehicle</TableHead>
-                    <TableHead className="pr-5">POD Received</TableHead>
-                  </>
-                )}
-
-                {/* 7. Vehicles on Trip */}
-                {activeStatView === "Vehicles on Trip" && (
-                  <>
-                    <TableHead className="pl-5">Vehicle No</TableHead>
-                    <TableHead>Driver Name</TableHead>
-                    <TableHead>Current Location</TableHead>
-                    <TableHead>Source</TableHead>
-                    <TableHead>Destination</TableHead>
-                    <TableHead>Trip Start Date</TableHead>
-                    <TableHead className="pr-5">Status</TableHead>
-                  </>
-                )}
-
+                {columns.map((col, i) => (
+                  <TableHead
+                    key={i}
+                    className={
+                      i === 0
+                        ? "pl-5"
+                        : i === columns.length - 1
+                        ? "pr-5 text-center w-[60px]"
+                        : ""
+                    }
+                  >
+                    {col.label}
+                  </TableHead>
+                ))}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {tableData.map((item, idx) => (
-                <TableRow key={idx} className="group cursor-default">
-                  <TableCell className="pl-5 w-[150px]">
-                    <span className="font-medium text-[#1d4ed8]">{item.id}</span>
-                  </TableCell>
-                  <TableCell className="w-[200px]">
-                    <p className="text-sm text-foreground">Dealer Name</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{item.destination}</p>
-                  </TableCell>
-                  <TableCell className="w-[150px]">
-                    <div className="flex items-center gap-2">
-                      <Package className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                      <span className="text-sm text-foreground">450 kg</span>
+              {tableData.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={columns.length} className="h-40 text-center">
+                    <div className="flex flex-col items-center gap-2">
+                      <Package className="w-8 h-8 text-muted-foreground/30" />
+                      <p className="text-sm font-medium text-foreground">No records found</p>
+                      <p className="text-xs text-muted-foreground">
+                        {showHistory
+                          ? "No historical records match your filters."
+                          : "No data available at the moment."}
+                      </p>
                     </div>
-                  </TableCell>
-                  <TableCell className="w-[160px]">
-                    <p className="text-sm text-foreground">{item.driver}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">+91 98765 43210</p>
-                  </TableCell>
-                  <TableCell className="w-[160px]">
-                    <div className="flex items-center gap-2">
-                      <div>
-                        <p className="text-sm text-foreground">{item.vehicle}</p>
-                        <Badge
-                          variant="outline"
-                          className="mt-0.5 text-[10px] px-1.5 py-0 rounded-sm border-blue-200 text-blue-600 bg-blue-50/60"
-                        >
-                          Own
-                        </Badge>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell className="w-[110px]">
-                    <span className="text-sm text-muted-foreground">{item.eta || "Today"}</span>
-                  </TableCell>
-                  <TableCell className="w-[110px]">
-                    {item.podStatus === "Signed" || showHistory ? (
-                      <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200">
-                        <CheckCircle2 className="w-3 h-3" />
-                        Signed
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full border bg-amber-50 text-amber-700 border-amber-200">
-                        <Clock className="w-3 h-3" />
-                        Pending
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell className="w-[60px] pr-5 text-center">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="w-8 h-8 text-muted-foreground hover:text-foreground"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </Button>
                   </TableCell>
                 </TableRow>
-              ))}
-              {tableData.length === 0 && (
-                <>
-                  {/* Fallback demo row placed directly in the main table so it aligns perfectly */}
-                  <TableRow className="opacity-60 pointer-events-none hover:bg-transparent border-b-0">
-                    <TableCell className="pl-5 w-[150px]">
-                      <span className="font-medium text-[#1d4ed8]">DEMO-2026-001</span>
-                    </TableCell>
-                    <TableCell className="w-[200px]">
-                      <p className="text-sm text-foreground">Example Dealer</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">Mumbai, MH</p>
-                    </TableCell>
-                    <TableCell className="w-[150px]">
-                      <div className="flex items-center gap-2">
-                        <Package className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                        <span className="text-sm text-foreground">500 kg</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="w-[160px]">
-                      <p className="text-sm text-foreground">John Doe</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">+91 99999 99999</p>
-                    </TableCell>
-                    <TableCell className="w-[160px]">
-                      <div>
-                        <p className="text-sm text-foreground">MH01 AB 1234</p>
-                        <Badge
-                          variant="outline"
-                          className="mt-0.5 text-[10px] px-1.5 py-0 rounded-sm border-blue-200 text-blue-600 bg-blue-50/60"
-                        >
-                          Demo
-                        </Badge>
-                      </div>
-                    </TableCell>
-                    <TableCell className="w-[110px]">
-                      <span className="text-sm text-muted-foreground">Today</span>
-                    </TableCell>
-                    <TableCell className="w-[110px]">
-                      <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200">
-                        <CheckCircle2 className="w-3 h-3" />
-                        Signed
-                      </span>
-                    </TableCell>
-                    <TableCell className="w-[60px] pr-5 text-center">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="w-8 h-8 text-muted-foreground"
+              ) : (
+                tableData.map((item, idx) => (
+                  <TableRow key={idx} className="hover:bg-[#fafbfe] transition-colors">
+                    {columns.map((col, ci) => (
+                      <TableCell
+                        key={ci}
+                        className={
+                          ci === 0
+                            ? "pl-5"
+                            : ci === columns.length - 1
+                            ? "pr-5 text-center"
+                            : ""
+                        }
                       >
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                    </TableCell>
+                        {col.render
+                          ? col.render(item[col.key], item)
+                          : (
+                            <span className="text-sm text-foreground">
+                              {item[col.key] ?? "—"}
+                            </span>
+                          )}
+                      </TableCell>
+                    ))}
                   </TableRow>
-                  <TableRow className="hover:bg-transparent">
-                    <TableCell colSpan={8} className="p-0 border-none bg-slate-50/50">
-                      <div className="w-full flex flex-col items-center justify-center py-10 px-6">
-                        <h4 className="text-sm font-semibold text-foreground mb-1">No Data Available</h4>
-                        <p className="text-sm text-muted-foreground max-w-sm text-center">
-                          Please adjust your filters or select a different stat card above (e.g.,
-                          "Active Shipments") to view actual demo data.
-                        </p>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                </>
+                ))
               )}
             </TableBody>
           </Table>

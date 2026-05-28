@@ -41,9 +41,9 @@ const statusStyles = {
     text: "text-blue-700",
     dot: "bg-blue-500",
   },
-  Maintenance: { bg: "bg-amber-50 border-amber-200", text: "text-amber-700" },
-  Idle: { bg: "bg-slate-50 border-slate-200", text: "text-slate-600" },
-  Breakdown: { bg: "bg-red-50 border-red-200", text: "text-red-700" },
+  Maintenance: { bg: "bg-amber-50 border-amber-200", text: "text-amber-700", dot: null },
+  Idle: { bg: "bg-slate-50 border-slate-200", text: "text-slate-600", dot: null },
+  Breakdown: { bg: "bg-red-50 border-red-200", text: "text-red-700", dot: null },
 };
 
 const availabilityStyles = {
@@ -51,15 +51,19 @@ const availabilityStyles = {
     bg: "bg-emerald-50 border-emerald-200",
     text: "text-emerald-700",
   },
+  Assigned: {
+    bg: "bg-amber-50 border-amber-200",
+    text: "text-amber-700",
+  },
   "On Trip": { bg: "bg-blue-50 border-blue-200", text: "text-blue-700" },
   Unavailable: { bg: "bg-red-50 border-red-200", text: "text-red-700" },
-  Scheduled: { bg: "bg-violet-50 border-violet-200", text: "text-violet-700" },
+  Scheduled: { bg: "bg-indigo-50 border-indigo-200", text: "text-indigo-700" },
 };
 
 const vehicleTypeBadge = {
   Truck: "bg-blue-50 text-blue-700 border-blue-200",
   "Mini Truck": "bg-teal-50 text-teal-700 border-teal-200",
-  Trailer: "bg-purple-50 text-purple-700 border-purple-200",
+  Trailer: "bg-zinc-100 text-zinc-700 border-zinc-200",
   Container: "bg-orange-50 text-orange-700 border-orange-200",
   Tanker: "bg-cyan-50 text-cyan-700 border-cyan-200",
 };
@@ -124,12 +128,18 @@ function VehicleTableRow({
   onScheduleMaintenance,
   onTrackLocation,
 }) {
-  const sts = statusStyles[vehicle.status];
-  const avail = availabilityStyles[vehicle.availability];
+  const sts   = statusStyles[vehicle.status]       || { bg: "bg-gray-50 border-gray-200", text: "text-gray-600", dot: null };
+  const avail = availabilityStyles[vehicle.availability] || { bg: "bg-gray-50 border-gray-200", text: "text-gray-500" };
   const typeBadge = vehicleTypeBadge[vehicle.type];
   const insExpiring = isExpiringSoon(vehicle.insuranceExpiry);
   const insExpired = isExpired(vehicle.insuranceExpiry);
   const isMaintenance = vehicle.status === "Maintenance";
+  
+  const isActiveOnTrip =
+    vehicle.availability === "On Trip" ||
+    vehicle.availability === "Scheduled" ||
+    vehicle.status === "Active" ||
+    vehicle.status === "In Transit";
 
   return (
     <TableRow className="group hover:bg-[#f8f9fb]/60 transition-colors">
@@ -243,19 +253,23 @@ function VehicleTableRow({
 
             {/* Delete */}
             <DropdownMenuItem
-              className="text-xs gap-2 cursor-pointer text-red-600 focus:text-red-600"
-              onClick={() => onDeleteVehicle(vehicle._id)}
+              className={`text-xs gap-2 cursor-pointer text-red-600 focus:text-red-600 ${isActiveOnTrip ? "opacity-40 cursor-not-allowed" : ""}`}
+              onClick={() => !isActiveOnTrip && onDeleteVehicle(vehicle._id)}
+              disabled={isActiveOnTrip}
+              title={isActiveOnTrip ? "Cannot delete vehicle while it is assigned to an active trip" : ""}
             >
               <Trash2 className="w-3.5 h-3.5" />
-              Delete Vehicle
+              Delete Vehicle {isActiveOnTrip && <span className="text-[10px] text-muted-foreground ml-auto">(Active Trip)</span>}
             </DropdownMenuItem>
 
             <DropdownMenuSeparator />
 
             {/* Schedule Maintenance */}
             <DropdownMenuItem
-              className="text-xs gap-2 cursor-pointer"
-              onClick={() => onScheduleMaintenance(vehicle)}
+              className={`text-xs gap-2 cursor-pointer ${isActiveOnTrip ? "opacity-40 cursor-not-allowed" : ""}`}
+              onClick={() => !isActiveOnTrip && onScheduleMaintenance(vehicle)}
+              disabled={isActiveOnTrip}
+              title={isActiveOnTrip ? "Cannot schedule maintenance while it is assigned to an active trip" : ""}
             >
               {isMaintenance ? (
                 <>
@@ -265,7 +279,7 @@ function VehicleTableRow({
               ) : (
                 <>
                   <Check className="w-3.5 h-3.5" />
-                  Schedule Maintenance
+                  Schedule Maintenance {isActiveOnTrip && <span className="text-[10px] text-muted-foreground ml-auto">(Active Trip)</span>}
                 </>
               )}
             </DropdownMenuItem>

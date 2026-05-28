@@ -38,6 +38,12 @@ const destinationSchema = new mongoose.Schema(
     totalFlaps: { type: Number, default: 0, min: 0 },
     totalQuantity: { type: Number, default: 0 },
     weightKg: { type: Number, default: 0, min: 0 },
+    isDelivered: { type: Boolean, default: false },
+    deliveredAt: { type: Date },
+    podImages: [{ type: String }],
+    podRemarks: { type: String, default: "" },
+    podReceiverName: { type: String, default: "" },
+    podStatus: { type: String, enum: ["Not Generated", "Pending", "Submitted"], default: "Not Generated" },
   },
   { _id: true }
 );
@@ -63,7 +69,7 @@ const shipmentSchema = new mongoose.Schema(
       ref: "Vehicle",
       required: true,
     },
-    vehicleNumber: { type: String, required: true, trim: true },
+    vehicleNumber: { type: String, required: true, trim: true, uppercase: true },
     vehicleCapacityKg: { type: Number },
     // Driver reference
     driverId: {
@@ -78,12 +84,18 @@ const shipmentSchema = new mongoose.Schema(
     totalQuantity: { type: Number, default: 0 },
     status: {
       type: String,
-      enum: ["Pending", "In Transit", "Delivered", "Cancelled"],
+      enum: ["Pending", "In Transit", "Delivered", "Cancelled", "Returned"],
       default: "Pending",
       index: true,
     },
     dispatchDate: { type: Date },
     deliveryDate: { type: Date },
+    arrivalTime:  { type: Date },
+    podStatus: {
+      type: String,
+      enum: ["Not Generated", "Pending", "Submitted"],
+      default: "Not Generated",
+    },
     notes: { type: String, trim: true },
   },
   { timestamps: true }

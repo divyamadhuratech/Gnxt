@@ -26,21 +26,36 @@ export const createShipment = async (req, res) => {
     if (!driver) return res.status(404).json({ success: false, message: "Driver not found" });
 
     // Build destination docs — resolve customerName + location from invoices
+    // Also auto-collect ALL pending invoices for the plant if none were explicitly selected
     const destinationDocs = await Promise.all(destinations.map(async (d) => {
       let customerName     = "";
       let deliveryLocation = d.deliveryLocation || "";
+      let invoiceIds       = d.invoiceIds || [];
 
-      // Try selected invoiceIds first
-      if (d.invoiceIds?.length) {
-        const inv = await Invoice.findById(d.invoiceIds[0])
-          .select("customerName location").lean();
-        if (inv) {
-          customerName     = inv.customerName || "";
-          deliveryLocation = deliveryLocation || inv.location || "";
+      // If no invoices were manually selected, auto-include ALL Pending invoices for this plant
+      if (invoiceIds.length === 0 && d.plantReferenceNumber) {
+        const pendingInvoices = await Invoice.find({
+          plantReferenceNumber: d.plantReferenceNumber,
+          status: "Pending",
+        }).select("_id customerName location").lean();
+        invoiceIds = pendingInvoices.map((inv) => inv._id);
+        if (pendingInvoices.length > 0) {
+          customerName     = pendingInvoices[0].customerName || "";
+          deliveryLocation = deliveryLocation || pendingInvoices[0].location || "";
         }
       }
 
-      // Fallback: look up any invoice for this plant to get customerName + location
+      // Try selected invoiceIds to resolve customerName + location
+      if ((!customerName || !deliveryLocation) && invoiceIds.length > 0) {
+        const inv = await Invoice.findById(invoiceIds[0])
+          .select("customerName location").lean();
+        if (inv) {
+          customerName     = customerName     || inv.customerName || "";
+          deliveryLocation = deliveryLocation || inv.location     || "";
+        }
+      }
+
+      // Final fallback: look up any invoice for this plant
       if ((!customerName || !deliveryLocation) && d.plantReferenceNumber) {
         const inv = await Invoice.findOne({ plantReferenceNumber: d.plantReferenceNumber })
           .select("customerName location").lean();
@@ -55,7 +70,7 @@ export const createShipment = async (req, res) => {
         plantReferenceNumber: d.plantReferenceNumber,
         customerName,
         deliveryLocation,
-        invoiceIds: d.invoiceIds || [],
+        invoiceIds,
         totalTyres: d.totalTyres || 0,
         totalTubes: d.totalTubes || 0,
         totalFlaps: d.totalFlaps || 0,
@@ -76,10 +91,16 @@ export const createShipment = async (req, res) => {
 
     await shipment.save();
 
-    // Mark vehicle as On Trip
-    await Vehicle.findByIdAndUpdate(vehicleId, { availability: "On Trip", status: "In Transit" });
+    // On create: vehicle is Active (assigned to shipment, not yet on road)
+    await Vehicle.findByIdAndUpdate(vehicleId, { availability: "Scheduled", status: "Active" });
     // Mark driver as Assigned
     await Driver.findByIdAndUpdate(driverId, { tripStatus: "Assigned", assignedVehicle: vehicle.vehicleNo });
+
+    // Mark all linked invoices as "Assigned"
+    const allInvoiceIds = destinationDocs.flatMap((d) => d.invoiceIds || []);
+    if (allInvoiceIds.length > 0) {
+      await Invoice.updateMany({ _id: { $in: allInvoiceIds } }, { status: "Assigned" });
+    }
 
     res.status(201).json({ success: true, message: "Shipment created", data: shipment });
   } catch (err) {
@@ -179,22 +200,68 @@ export const getShipmentById = async (req, res) => {
 export const updateShipmentStatus = async (req, res) => {
   try {
     const { status } = req.body;
-    const allowed = ["Pending", "In Transit", "Delivered", "Cancelled"];
+    const allowed = ["Pending", "In Transit", "Delivered", "Cancelled", "Returned"];
     if (!allowed.includes(status)) {
       return res.status(400).json({ success: false, message: "Invalid status" });
     }
 
     const shipment = await Shipment.findByIdAndUpdate(
       req.params.id,
-      { status, ...(status === "Delivered" ? { deliveryDate: new Date() } : {}), ...(status === "In Transit" ? { dispatchDate: new Date() } : {}) },
+      {
+        status,
+        ...(status === "Delivered" ? { deliveryDate: new Date() } : {}),
+        ...(status === "In Transit" ? { dispatchDate: new Date() } : {}),
+        ...(status === "Returned"   ? { deliveryDate: new Date(), arrivalTime: new Date() } : {}),
+      },
       { new: true }
     );
     if (!shipment) return res.status(404).json({ success: false, message: "Shipment not found" });
 
-    // Free vehicle & driver when delivered or cancelled
-    if (status === "Delivered" || status === "Cancelled") {
+    // Collect all linked invoice IDs across destinations
+    // Fallback: if invoiceIds is empty for a destination, look up by plantReferenceNumber
+    const linkedInvoiceIds = [];
+    for (const d of shipment.destinations || []) {
+      if (d.invoiceIds?.length) {
+        linkedInvoiceIds.push(...d.invoiceIds);
+      } else if (d.plantReferenceNumber) {
+        // Legacy shipment — invoiceIds not stored; find by plant + current status
+        const invs = await Invoice.find({
+          plantReferenceNumber: d.plantReferenceNumber,
+          status: { $in: ["Pending", "Assigned", "In Transit"] },
+        }).select("_id").lean();
+        linkedInvoiceIds.push(...invs.map((i) => i._id));
+      }
+    }
+
+    // ── Vehicle, Driver & Invoice side-effects by status ──────────────────────
+    if (status === "In Transit") {
+      // Dispatched — vehicle is now physically on the road
+      await Vehicle.findByIdAndUpdate(shipment.vehicleId, { availability: "On Trip", status: "In Transit" });
+      // Driver is now driving
+      await Driver.findByIdAndUpdate(shipment.driverId, { tripStatus: "Driving" });
+      if (linkedInvoiceIds.length > 0) {
+        await Invoice.updateMany({ _id: { $in: linkedInvoiceIds } }, { status: "In Transit" });
+      }
+    } else if (status === "Delivered") {
+      // Shipment delivered — invoices marked Delivered, but vehicle/driver stay active
+      // until the vehicle physically returns to warehouse (Returned status)
+      if (linkedInvoiceIds.length > 0) {
+        await Invoice.updateMany({ _id: { $in: linkedInvoiceIds } }, { status: "Delivered" });
+      }
+    } else if (status === "Returned") {
+      // Vehicle back at warehouse — NOW free vehicle and driver
       await Vehicle.findByIdAndUpdate(shipment.vehicleId, { availability: "Available", status: "Idle" });
       await Driver.findByIdAndUpdate(shipment.driverId, { tripStatus: "Idle", assignedVehicle: null });
+      if (linkedInvoiceIds.length > 0) {
+        await Invoice.updateMany({ _id: { $in: linkedInvoiceIds } }, { status: "Delivered" });
+      }
+    } else if (status === "Cancelled") {
+      // Cancelled — free vehicle and driver, reset invoices
+      await Vehicle.findByIdAndUpdate(shipment.vehicleId, { availability: "Available", status: "Idle" });
+      await Driver.findByIdAndUpdate(shipment.driverId, { tripStatus: "Idle", assignedVehicle: null });
+      if (linkedInvoiceIds.length > 0) {
+        await Invoice.updateMany({ _id: { $in: linkedInvoiceIds } }, { status: "Pending" });
+      }
     }
 
     res.status(200).json({ success: true, message: "Status updated", data: shipment });
@@ -221,11 +288,16 @@ export const updateShipment = async (req, res) => {
     const update = { notes };
 
     // ── Vehicle change ──────────────────────────────
+    const vehicleChanged = vehicle && existing.vehicleId?.toString() !== vehicle._id.toString();
     if (vehicle) {
-      // Free old vehicle if different
-      if (existing.vehicleId?.toString() !== vehicle._id.toString()) {
+      if (vehicleChanged) {
+        // Free old vehicle
         await Vehicle.findByIdAndUpdate(existing.vehicleId, { availability: "Available", status: "Idle" });
-        await Vehicle.findByIdAndUpdate(vehicle._id, { availability: "On Trip", status: "In Transit" });
+        // New vehicle status depends on current shipment status
+        const newVehicleStatus = existing.status === "In Transit"
+          ? { availability: "On Trip",   status: "In Transit" }
+          : { availability: "Scheduled",  status: "Active" };
+        await Vehicle.findByIdAndUpdate(vehicle._id, newVehicleStatus);
       }
       update.vehicleId         = vehicle._id;
       update.vehicleNumber     = vehicle.vehicleNo;
@@ -233,9 +305,10 @@ export const updateShipment = async (req, res) => {
     }
 
     // ── Driver change ───────────────────────────────
+    const driverChanged = driver && existing.driverId?.toString() !== driver._id.toString();
     if (driver) {
       // Free old driver if different
-      if (existing.driverId?.toString() !== driver._id.toString()) {
+      if (driverChanged) {
         await Driver.findByIdAndUpdate(existing.driverId, { tripStatus: "Idle", assignedVehicle: null });
         await Driver.findByIdAndUpdate(driver._id, { tripStatus: "Assigned", assignedVehicle: vehicle?.vehicleNo || existing.vehicleNumber });
       }
@@ -244,14 +317,13 @@ export const updateShipment = async (req, res) => {
       update.driverPhone = driver.phone;
     }
 
-    // ── Status logic on update ──────────────────────
-    // If vehicle or driver changed and shipment is Pending → move to In Transit
-    const vehicleChanged = vehicle && existing.vehicleId?.toString() !== vehicle._id.toString();
-    const driverChanged  = driver  && existing.driverId?.toString()  !== driver._id.toString();
-    if ((vehicleChanged || driverChanged) && existing.status === "Pending") {
-      update.status       = "In Transit";
-      update.dispatchDate = new Date();
+    // If vehicle changed but driver stayed the same, update the existing driver's assignedVehicle
+    if (vehicleChanged && !driverChanged) {
+      await Driver.findByIdAndUpdate(existing.driverId, { assignedVehicle: vehicle.vehicleNo });
     }
+
+    // ── Status logic on update ──────────────────────
+    // Editing a shipment does NOT auto-dispatch it — status only changes via PATCH /status
 
     // ── Destinations ────────────────────────────────
     if (destinations?.length) {
@@ -312,11 +384,61 @@ export const updateShipment = async (req, res) => {
 
 export const deleteShipment = async (req, res) => {
   try {
-    const shipment = await Shipment.findByIdAndDelete(req.params.id);
+    const shipment = await Shipment.findById(req.params.id).lean();
     if (!shipment) return res.status(404).json({ success: false, message: "Shipment not found" });
-    res.status(200).json({ success: true, message: "Shipment deleted" });
+
+    // ── Free driver back to Idle ──────────────────────────────────────────────
+    if (shipment.driverId) {
+      await Driver.findByIdAndUpdate(shipment.driverId, {
+        tripStatus: "Idle",
+        assignedVehicle: null,
+      });
+    }
+
+    // ── Free vehicle back to Available/Idle ───────────────────────────────────
+    if (shipment.vehicleId) {
+      await Vehicle.findByIdAndUpdate(shipment.vehicleId, {
+        availability: "Available",
+        status: "Idle",
+      });
+    }
+
+    // ── Reset any linked invoice statuses back to Pending ─────────────────────
+    const invoiceIdsToFree = [];
+    (shipment.destinations || []).forEach((d) => {
+      if (d.invoiceIds?.length) invoiceIdsToFree.push(...d.invoiceIds);
+    });
+    if (invoiceIdsToFree.length > 0) {
+      await Invoice.updateMany({ _id: { $in: invoiceIdsToFree } }, { status: "Pending" });
+    }
+
+    await Shipment.findByIdAndDelete(req.params.id);
+    res.status(200).json({ success: true, message: "Shipment deleted and related records freed" });
   } catch (err) {
     res.status(500).json({ success: false, message: "Error deleting shipment", error: err.message });
+  }
+};
+
+/* ─────────────────────────────────────────────────
+   PATCH /api/shipments/:id/pod
+   Update POD status (Not Generated → Pending → Submitted)
+───────────────────────────────────────────────── */
+export const updatePodStatus = async (req, res) => {
+  try {
+    const { podStatus } = req.body;
+    const allowed = ["Not Generated", "Pending", "Submitted"];
+    if (!allowed.includes(podStatus)) {
+      return res.status(400).json({ success: false, message: "Invalid POD status" });
+    }
+    const shipment = await Shipment.findByIdAndUpdate(
+      req.params.id,
+      { podStatus },
+      { new: true }
+    );
+    if (!shipment) return res.status(404).json({ success: false, message: "Shipment not found" });
+    res.status(200).json({ success: true, message: "POD status updated", data: shipment });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Error updating POD status", error: err.message });
   }
 };
 
@@ -375,6 +497,8 @@ export const getNextShipmentId = async (req, res) => {
 ───────────────────────────────────────────────── */
 export const getPlantNumbers = async (req, res) => {
   try {
+    // Only return plants that have at least one Pending invoice
+    // (Assigned / In Transit / Delivered plants are already in a shipment)
     const plants = await Invoice.distinct("plantReferenceNumber", { status: "Pending" });
     res.status(200).json({ success: true, data: plants.sort() });
   } catch (err) {
@@ -398,5 +522,117 @@ export const getShipmentsByDriver = async (req, res) => {
   } catch (err) {
     console.error("Get shipments by driver error:", err);
     res.status(500).json({ success: false, message: "Error fetching driver shipments", error: err.message });
+  }
+};
+
+/* ─────────────────────────────────────────────────
+   PATCH /api/shipments/:id/destination/:destId/delivery
+   Mark a destination in a shipment as delivered
+───────────────────────────────────────────────── */
+export const updateDestinationDelivery = async (req, res) => {
+  try {
+    const { id, destId } = req.params;
+    const { receiverName, remarks } = req.body;
+
+    const shipment = await Shipment.findById(id);
+    if (!shipment) {
+      return res.status(404).json({ success: false, message: "Shipment not found" });
+    }
+
+    const destination = shipment.destinations.id(destId);
+    if (!destination) {
+      return res.status(404).json({ success: false, message: "Destination not found" });
+    }
+
+    // Update destination delivery state
+    destination.isDelivered = true;
+    destination.deliveredAt = new Date();
+    destination.podStatus = "Pending"; // delivery confirmed but POD not yet uploaded
+    if (receiverName !== undefined) destination.podReceiverName = receiverName;
+    if (remarks !== undefined) destination.podRemarks = remarks;
+
+    // Update linked invoices to Delivered status immediately
+    if (destination.invoiceIds && destination.invoiceIds.length > 0) {
+      await Invoice.updateMany(
+        { _id: { $in: destination.invoiceIds } },
+        { status: "Delivered" }
+      );
+    } else if (destination.plantReferenceNumber) {
+      await Invoice.updateMany(
+        { plantReferenceNumber: destination.plantReferenceNumber, status: { $ne: "Delivered" } },
+        { status: "Delivered" }
+      );
+    }
+
+    // Check if ALL destinations are now delivered — enable "Shipment Completed" button
+    // but do NOT auto-close; closure is manual via PATCH /:id/status → "Delivered"
+    const allDelivered = shipment.destinations.every((d) => d.isDelivered);
+
+    await shipment.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Destination delivery confirmed",
+      allDelivered,   // frontend uses this to enable the "Shipment Completed" button
+      data: shipment,
+    });
+  } catch (err) {
+    console.error("Update destination delivery error:", err);
+    res.status(500).json({ success: false, message: "Error confirming delivery", error: err.message });
+  }
+};
+
+/* ─────────────────────────────────────────────────
+   PATCH /api/shipments/:id/destination/:destId/pod
+   Submit POD documents for a specific destination
+───────────────────────────────────────────────── */
+export const submitDestinationPod = async (req, res) => {
+  try {
+    const { id, destId } = req.params;
+    const { receiverName, remarks, podImages } = req.body;
+
+    const shipment = await Shipment.findById(id);
+    if (!shipment) {
+      return res.status(404).json({ success: false, message: "Shipment not found" });
+    }
+
+    const destination = shipment.destinations.id(destId);
+    if (!destination) {
+      return res.status(404).json({ success: false, message: "Destination not found" });
+    }
+
+    // Save POD details — podImages are now file URLs from /api/upload (not base64)
+    destination.podStatus = "Submitted";
+    if (!destination.isDelivered) {
+      destination.isDelivered = true;
+      destination.deliveredAt = new Date();
+    }
+    if (podImages !== undefined && Array.isArray(podImages)) {
+      destination.podImages = podImages; // store file URLs
+    }
+    if (receiverName !== undefined) destination.podReceiverName = receiverName;
+    if (remarks !== undefined) destination.podRemarks = remarks;
+
+    // Ensure linked invoices are marked Delivered
+    if (destination.invoiceIds && destination.invoiceIds.length > 0) {
+      await Invoice.updateMany(
+        { _id: { $in: destination.invoiceIds } },
+        { status: "Delivered" }
+      );
+    }
+
+    // DO NOT auto-close shipment here — closure is manual via "Shipment Completed" button
+    // The shipment stays "In Transit" until the user explicitly clicks Shipment Completed
+
+    await shipment.save();
+
+    res.status(200).json({
+      success: true,
+      message: "POD submitted successfully",
+      data: shipment,
+    });
+  } catch (err) {
+    console.error("Submit destination POD error:", err);
+    res.status(500).json({ success: false, message: "Error submitting POD", error: err.message });
   }
 };

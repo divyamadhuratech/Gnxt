@@ -1,12 +1,9 @@
-import { ChevronRight, Truck, MapPin, Clock, CheckCircle2, FileWarning, XCircle } from "lucide-react";
+import { ChevronRight, Truck, Clock, CheckCircle2, XCircle } from "lucide-react";
 
-// Map iconName strings to actual icon components
 const ICON_MAP = {
   Truck,
-  MapPin,
   Clock,
   CheckCircle2,
-  FileWarning,
   XCircle,
 };
 

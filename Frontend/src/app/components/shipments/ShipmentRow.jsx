@@ -1,7 +1,7 @@
 import { Eye, FileCheck, Pencil } from "lucide-react";
 import { TableRow, TableCell } from "../ui/table";
 import { Badge } from "../ui/badge";
-import { getPODConfig, statusConfig } from "./utils/shipmentStyles";
+import { getPODConfig, getAggregatePodStatus, statusConfig } from "./utils/shipmentStyles";
 
 const API_BASE_URL = import.meta.env?.VITE_API_URL || "http://localhost:5000/api";
 
@@ -14,7 +14,8 @@ export function PlantRow({
   onDeleted,
 }) {
   const sc  = statusConfig[shipment.status] || { label: shipment.status || "N/A", className: "bg-gray-50 text-gray-700 border-gray-200" };
-  const pod = getPODConfig(shipment.status);
+  const aggregatePodStatus = getAggregatePodStatus(shipment);
+  const pod = getPODConfig(shipment.status, aggregatePodStatus);
 
   const dest = shipment.destinations?.[0] ?? {};
 
@@ -131,17 +132,34 @@ export function PlantRow({
 
       {/* POD */}
       <TableCell>
-        <span
-          className={`inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full border ${pod.className}${
-            shipment.status === "Delivered" ? " cursor-pointer hover:bg-emerald-100 hover:border-emerald-300 transition-colors" : ""
-          }`}
-          role={shipment.status === "Delivered" ? "button" : undefined}
-          onClick={shipment.status === "Delivered" ? () => { setSelectedShipment(shipment); setViewSheetOpen(true); } : undefined}
-        >
-          {pod.icon && <FileCheck className="w-3 h-3" />}
-          {pod.label}
-          {shipment.status === "Delivered" && <Eye className="w-3 h-3 ml-0.5 opacity-60" />}
-        </span>
+        <div className="flex flex-col gap-1">
+          <span
+            className={`inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full border w-fit ${pod.className}${
+              shipment.status === "Delivered" ? " cursor-pointer hover:opacity-80 transition-opacity" : ""
+            }`}
+            onClick={shipment.status === "Delivered" ? () => { setSelectedShipment(shipment); setViewSheetOpen(true); } : undefined}
+          >
+            {pod.icon && <FileCheck className="w-3 h-3" />}
+            {pod.label}
+          </span>
+          {/* Per-destination breakdown for multi-destination shipments */}
+          {shipment.destinations?.length > 1 && (
+            <div className="flex flex-col gap-0.5 mt-0.5">
+              {shipment.destinations.map((d, i) => {
+                const dPod = d.podStatus === "Submitted"
+                  ? { label: "Signed", cls: "text-emerald-600" }
+                  : d.isDelivered
+                  ? { label: "Pending", cls: "text-amber-600" }
+                  : { label: "—", cls: "text-gray-400" };
+                return (
+                  <span key={i} className={`text-[10px] ${dPod.cls}`}>
+                    D{i + 1}: {dPod.label}
+                  </span>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </TableCell>
 
       {/* View / Edit / Delete */}

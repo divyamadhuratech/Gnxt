@@ -60,10 +60,10 @@ const MODULES = [
 ];
 
 const ROLES = [
-  { name: "Super Admin", desc: "Full system access including user management" },
-  { name: "Branch Manager", desc: "Manage operations for assigned branches only" },
-  { name: "Logistics Staff", desc: "Create and update LR numbers, manage local delivery" },
-  { name: "Viewer", desc: "Read-only access across assigned modules" }
+  { name: "Admin", desc: "Full system access including user management" },
+  { name: "Invoice Manager", desc: "Manage operations and invoice details" },
+  { name: "Supervisor", desc: "Assign drivers and vehicles, oversee operations" },
+  { name: "Accounts Manager", desc: "View and manage reports, expenses and accounts" }
 ];
 
 const BRANCHES = ["All Branches", "Mumbai Hub", "Delhi Hub", "Chennai Hub", "Kolkata Hub", "Bangalore Hub"];
@@ -125,7 +125,7 @@ export function SettingsPage() {
   };
 
   // Permissions state
-  const [selectedRole, setSelectedRole] = useState("Super Admin");
+  const [selectedRole, setSelectedRole] = useState("Admin");
   const [rolePermissions, setRolePermissions] = useState({});
   const [savingPermissions, setSavingPermissions] = useState(false);
 
@@ -145,8 +145,8 @@ export function SettingsPage() {
     username: "",
     email: "",
     password: "",
-    role: "Logistics Staff",
-    branch: "Mumbai Hub",
+    role: "Supervisor",
+    branch: "",
   });
   const [formError, setFormError] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
@@ -162,10 +162,10 @@ export function SettingsPage() {
     ROLES.forEach((role) => {
       defaultPerms[role.name] = MODULES.map((m) => ({
         module: m,
-        view: role.name === "Super Admin",
-        create: role.name === "Super Admin",
-        edit: role.name === "Super Admin",
-        delete: role.name === "Super Admin",
+        view: role.name === "Admin",
+        create: role.name === "Admin",
+        edit: role.name === "Admin",
+        delete: role.name === "Admin",
       }));
     });
     setRolePermissions(defaultPerms);
@@ -179,7 +179,15 @@ export function SettingsPage() {
       });
       const data = await res.json();
       if (data.success) {
-        setUsers(data.data);
+        // Map database roles to new client-side display roles
+        const mappedUsers = data.data.map((u) => ({
+          ...u,
+          role: u.role === "Super Admin" ? "Admin" :
+                u.role === "Branch Manager" ? "Invoice Manager" :
+                u.role === "Logistics Staff" ? "Supervisor" :
+                u.role === "Viewer" ? "Accounts Manager" : u.role
+        }));
+        setUsers(mappedUsers);
       }
     } catch (err) {
       console.error("Error fetching users:", err);
@@ -212,8 +220,8 @@ export function SettingsPage() {
       username: "",
       email: "",
       password: "",
-      role: "Logistics Staff",
-      branch: "Mumbai Hub",
+      role: "Supervisor",
+      branch: "",
     });
     setFormError("");
     setUserDialogOpen(true);
@@ -227,7 +235,7 @@ export function SettingsPage() {
       email: user.email,
       password: "", // blank in edit mode
       role: user.role,
-      branch: user.branch || "Mumbai Hub",
+      branch: user.branch || "",
     });
     setFormError("");
     setUserDialogOpen(true);
@@ -238,7 +246,7 @@ export function SettingsPage() {
     setFormError("");
     setActionLoading(true);
 
-    const isSuperAdmin = currentUser?.role === "Super Admin";
+    const isSuperAdmin = currentUser?.role === "Super Admin" || currentUser?.role === "Admin";
     if (!isSuperAdmin) {
       setFormError("Only Super Admins can add or edit users.");
       setActionLoading(false);
@@ -248,7 +256,14 @@ export function SettingsPage() {
     try {
       const url = isEditing ? `${API}/users/${editingUserId}` : `${API}/users`;
       const method = isEditing ? "PUT" : "POST";
-      const body = { ...formData };
+      
+      // Map display role back to database role
+      const dbRole = formData.role === "Admin" ? "Super Admin" :
+                     formData.role === "Invoice Manager" ? "Branch Manager" :
+                     formData.role === "Supervisor" ? "Logistics Staff" :
+                     formData.role === "Accounts Manager" ? "Viewer" : formData.role;
+
+      const body = { ...formData, role: dbRole };
       if (isEditing) delete body.password; // Don't send blank password on edit
 
       const res = await fetch(url, {
@@ -352,7 +367,7 @@ export function SettingsPage() {
   };
 
   const handlePermissionChange = (moduleName, field, value) => {
-    if (selectedRole === "Super Admin") return; // Super admin permissions are immutable
+    if (selectedRole === "Admin") return; // Admin permissions are immutable
     setRolePermissions((prev) => {
       const updated = { ...prev };
       updated[selectedRole] = updated[selectedRole].map((m) =>
@@ -398,6 +413,40 @@ export function SettingsPage() {
       u.role?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const handleToggleRowAll = (moduleName, value) => {
+    if (selectedRole === "Admin") return;
+    setRolePermissions((prev) => {
+      const updated = { ...prev };
+      updated[selectedRole] = updated[selectedRole].map((m) =>
+        m.module === moduleName
+          ? { ...m, view: value, create: value, edit: value, delete: value }
+          : m
+      );
+      return updated;
+    });
+  };
+
+  const handleToggleAllOverall = (value) => {
+    if (selectedRole === "Admin") return;
+    setRolePermissions((prev) => {
+      const updated = { ...prev };
+      updated[selectedRole] = updated[selectedRole].map((m) => ({
+        ...m,
+        view: value,
+        create: value,
+        edit: value,
+        delete: value,
+      }));
+      return updated;
+    });
+  };
+
+  const currentRolePerms = rolePermissions[selectedRole] || [];
+  const isAllSelectedOverall = selectedRole === "Admin" || (
+    currentRolePerms.length > 0 &&
+    currentRolePerms.every((p) => p.view && p.create && p.edit && p.delete)
+  );
+
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       {/* ── HEADER ── */}
@@ -408,7 +457,7 @@ export function SettingsPage() {
             Manage system access, configure roles, and monitor user activities across branches.
           </p>
         </div>
-        {activeTab === "users" && currentUser?.role === "Super Admin" && (
+        {activeTab === "users" && (currentUser?.role === "Super Admin" || currentUser?.role === "Admin") && (
           <Button onClick={handleOpenAddUser} className="bg-[#1d4ed8] hover:bg-blue-800 text-white gap-2 h-10 px-4 rounded-xl shadow-sm transition-all duration-200">
             <Plus className="w-4 h-4" />
             New User
@@ -536,7 +585,7 @@ export function SettingsPage() {
                         <div className="flex items-center gap-2">
                           <Switch
                             checked={user.status === "Active"}
-                            disabled={currentUser?.role !== "Super Admin" || user._id === currentUser?.id}
+                            disabled={!(currentUser?.role === "Super Admin" || currentUser?.role === "Admin") || user._id === currentUser?.id}
                             onCheckedChange={() => handleToggleStatus(user)}
                           />
                           <span
@@ -551,7 +600,7 @@ export function SettingsPage() {
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        {currentUser?.role === "Super Admin" ? (
+                        {currentUser?.role === "Super Admin" || currentUser?.role === "Admin" ? (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" className="h-8 w-8 p-0 hover:bg-slate-100 rounded-full">
@@ -624,7 +673,7 @@ export function SettingsPage() {
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-sm text-slate-900">{role.name}</span>
-                    {role.name === "Super Admin" && (
+                    {role.name === "Admin" && (
                       <span className="text-[10px] font-semibold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
                         Full Access
                       </span>
@@ -643,7 +692,7 @@ export function SettingsPage() {
                 <div>
                   <h3 className="font-semibold text-slate-900 text-lg flex items-center gap-2">
                     Permissions: {selectedRole}
-                    {selectedRole === "Super Admin" && (
+                    {selectedRole === "Admin" && (
                       <span className="text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100 px-2 py-0.5 rounded-full">
                         Implicit Access
                       </span>
@@ -651,7 +700,7 @@ export function SettingsPage() {
                   </h3>
                   <p className="text-xs text-slate-500 mt-1">Configure what this role can see and do in the system.</p>
                 </div>
-                {selectedRole !== "Super Admin" && currentUser?.role === "Super Admin" && (
+                {selectedRole !== "Admin" && (currentUser?.role === "Super Admin" || currentUser?.role === "Admin") && (
                   <Button
                     onClick={handleSavePermissions}
                     disabled={savingPermissions}
@@ -662,11 +711,11 @@ export function SettingsPage() {
                 )}
               </div>
 
-              {selectedRole === "Super Admin" && (
+              {selectedRole === "Admin" && (
                 <div className="flex items-start gap-3 bg-blue-50 border border-blue-100 p-4 rounded-xl text-blue-800">
                   <AlertCircle className="w-5 h-5 text-[#1d4ed8] shrink-0 mt-0.5" />
                   <p className="text-sm leading-relaxed">
-                    Super Admin roles have implicit full access to all system modules and settings. Custom rules cannot be changed.
+                    Admin roles have implicit full access to all system modules and settings. Custom rules cannot be changed.
                   </p>
                 </div>
               )}
@@ -680,6 +729,16 @@ export function SettingsPage() {
                       <TableHead className="text-xs font-semibold text-slate-500 uppercase h-10 text-center">Create</TableHead>
                       <TableHead className="text-xs font-semibold text-slate-500 uppercase h-10 text-center">Edit</TableHead>
                       <TableHead className="text-xs font-semibold text-slate-500 uppercase h-10 text-center">Delete</TableHead>
+                      <TableHead className="text-xs font-semibold text-slate-500 uppercase h-10 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <span>All</span>
+                          <Checkbox
+                            checked={isAllSelectedOverall}
+                            disabled={selectedRole === "Admin" || !(currentUser?.role === "Super Admin" || currentUser?.role === "Admin")}
+                            onCheckedChange={(val) => handleToggleAllOverall(!!val)}
+                          />
+                        </div>
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -691,35 +750,43 @@ export function SettingsPage() {
                         edit: false,
                         delete: false,
                       };
+                      const isRowAllChecked = selectedRole === "Admin" || (perm.view && perm.create && perm.edit && perm.delete);
                       return (
                         <TableRow key={mod} className="border-b border-slate-50 hover:bg-transparent">
                           <TableCell className="font-medium text-sm text-slate-800 py-3.5 pl-0">{mod}</TableCell>
                           <TableCell className="text-center py-3.5">
                             <Checkbox
-                              checked={selectedRole === "Super Admin" || perm.view}
-                              disabled={selectedRole === "Super Admin" || currentUser?.role !== "Super Admin"}
+                              checked={selectedRole === "Admin" || perm.view}
+                              disabled={selectedRole === "Admin" || !(currentUser?.role === "Super Admin" || currentUser?.role === "Admin")}
                               onCheckedChange={(val) => handlePermissionChange(mod, "view", !!val)}
                             />
                           </TableCell>
                           <TableCell className="text-center py-3.5">
                             <Checkbox
-                              checked={selectedRole === "Super Admin" || perm.create}
-                              disabled={selectedRole === "Super Admin" || currentUser?.role !== "Super Admin"}
+                              checked={selectedRole === "Admin" || perm.create}
+                              disabled={selectedRole === "Admin" || !(currentUser?.role === "Super Admin" || currentUser?.role === "Admin")}
                               onCheckedChange={(val) => handlePermissionChange(mod, "create", !!val)}
                             />
                           </TableCell>
                           <TableCell className="text-center py-3.5">
                             <Checkbox
-                              checked={selectedRole === "Super Admin" || perm.edit}
-                              disabled={selectedRole === "Super Admin" || currentUser?.role !== "Super Admin"}
+                              checked={selectedRole === "Admin" || perm.edit}
+                              disabled={selectedRole === "Admin" || !(currentUser?.role === "Super Admin" || currentUser?.role === "Admin")}
                               onCheckedChange={(val) => handlePermissionChange(mod, "edit", !!val)}
                             />
                           </TableCell>
                           <TableCell className="text-center py-3.5">
                             <Checkbox
-                              checked={selectedRole === "Super Admin" || perm.delete}
-                              disabled={selectedRole === "Super Admin" || currentUser?.role !== "Super Admin"}
+                              checked={selectedRole === "Admin" || perm.delete}
+                              disabled={selectedRole === "Admin" || !(currentUser?.role === "Super Admin" || currentUser?.role === "Admin")}
                               onCheckedChange={(val) => handlePermissionChange(mod, "delete", !!val)}
+                            />
+                          </TableCell>
+                          <TableCell className="text-center py-3.5">
+                            <Checkbox
+                              checked={isRowAllChecked}
+                              disabled={selectedRole === "Admin" || !(currentUser?.role === "Super Admin" || currentUser?.role === "Admin")}
+                              onCheckedChange={(val) => handleToggleRowAll(mod, !!val)}
                             />
                           </TableCell>
                         </TableRow>
@@ -943,18 +1010,13 @@ export function SettingsPage() {
                 <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
                   Branch Assign
                 </label>
-                <select
+                <Input
                   id="user-branch"
                   value={formData.branch}
                   onChange={(e) => setFormData({ ...formData, branch: e.target.value })}
-                  className="w-full h-10 bg-white border border-slate-200 rounded-xl px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#1d4ed8]"
-                >
-                  {BRANCHES.map((b) => (
-                    <option key={b} value={b}>
-                      {b}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="e.g. Mumbai Hub"
+                  className="h-10 rounded-xl"
+                />
               </div>
             </div>
 

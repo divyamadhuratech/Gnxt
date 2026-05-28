@@ -4,26 +4,17 @@ import axios from "axios";
 import { DashboardHeader } from "./DashboardHeader";
 import { DashboardStatsGrid } from "./DashboardStatsGrid";
 import { DashboardChart } from "./DashboardChart";
-import { PendingPODsPanel } from "./PendingPODsPanel";
-import { LiveShipmentsTable } from "./LiveShipmentsTable";
+import { CreateShipmentPanel } from "./CreateShipmentPanel";
 import { StatDetailView } from "./StatDetailView";
 
-// We'll use our API base URL
 const API_BASE_URL = "http://localhost:5000/api";
 
 export function DashboardPage() {
-  const [activeStatView, setActiveStatView] = useState("Active Shipments");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [podFilter, setPodFilter] = useState("all");
-  const [dateFilter, setDateFilter] = useState(undefined);
-  const [showHistory, setShowHistory] = useState(true);
+  const [activeStatView, setActiveStatView] = useState(null);
 
-  // Data states
   const [stats, setStats] = useState([]);
   const [weeklyData, setWeeklyData] = useState([]);
-  const [currentShipments, setCurrentShipments] = useState([]);
-  const [historicalShipments, setHistoricalShipments] = useState([]);
-  const [pendingPODs, setPendingPODs] = useState([]);
+  const [allShipments, setAllShipments] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -33,39 +24,15 @@ export function DashboardPage() {
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      const [statsRes, weeklyRes, shipmentsRes, invoicesRes] = await Promise.all([
+      const [statsRes, weeklyRes, shipmentsRes] = await Promise.all([
         axios.get(`${API_BASE_URL}/dashboard/stats`),
         axios.get(`${API_BASE_URL}/dashboard/weekly`),
-        axios.get(`${API_BASE_URL}/shipments?limit=100`),
-        axios.get(`${API_BASE_URL}/invoices?status=Pending`)
+        axios.get(`${API_BASE_URL}/shipments?limit=500`),
       ]);
 
       if (statsRes.data.success) setStats(statsRes.data.data);
       if (weeklyRes.data.success) setWeeklyData(weeklyRes.data.data);
-
-      if (shipmentsRes.data.success) {
-        const shipments = shipmentsRes.data.data;
-        const active = shipments
-          .filter(s => s.status !== "Delivered" && s.status !== "Cancelled")
-          .map(formatShipmentForTable);
-        const history = shipments
-          .filter(s => s.status === "Delivered" || s.status === "Cancelled")
-          .map(formatShipmentForTable);
-        
-        setCurrentShipments(active);
-        setHistoricalShipments(history);
-      }
-
-      if (invoicesRes.data.success) {
-        const pods = invoicesRes.data.data.map(inv => ({
-          id: inv.invoiceNumber,
-          dealer: inv.customerName,
-          date: format(new Date(inv.invoiceDate || inv.createdAt), "MMM d, yyyy"),
-          shipmentId: inv.plantReferenceNumber || "N/A", // Or map to shipment if possible
-          status: inv.status === "Pending" ? "Awaiting Upload" : "Verification Pending"
-        }));
-        setPendingPODs(pods);
-      }
+      if (shipmentsRes.data.success) setAllShipments(shipmentsRes.data.data);
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
     } finally {
@@ -73,62 +40,82 @@ export function DashboardPage() {
     }
   };
 
-  const formatShipmentForTable = (s) => ({
+  const formatShipment = (s) => ({
     id: s.shipmentId,
     vehicle: s.vehicleNumber || "Unknown",
     driver: s.driverName || "Unknown",
-    destination: s.destinations?.[0]?.customerName || s.destinations?.[0]?.deliveryLocation || "Unknown",
+    destination:
+      s.destinations?.[0]?.customerName ||
+      s.destinations?.[0]?.deliveryLocation ||
+      "Unknown",
     status: s.status,
-    progress: s.status === "Delivered" ? 100 : (s.status === "In Transit" ? 60 : 10),
-    eta: s.deliveryDate ? format(new Date(s.deliveryDate), "MMM d, yyyy h:mm a") : "Pending",
+    eta: s.deliveryDate
+      ? format(new Date(s.deliveryDate), "MMM d, yyyy h:mm a")
+      : "Pending",
     items: `${s.totalQuantity || 0} Items`,
-    podStatus: s.status === "Delivered" ? "Signed" : "Pending",
-    originalDate: s.dispatchDate || s.createdAt
+    // POD status — real field if available, else derive from status
+    podStatus: s.podStatus || (s.status === "Delivered" ? "Signed" : "Pending"),
+    dispatchDate: s.dispatchDate || s.createdAt,
+    deliveryDate: s.deliveryDate || null,
   });
 
-  // Filter the current shipments (in a real app, this would use the full data)
-  let baseData = [];
-  if (activeStatView === "Active Shipments") {
-    baseData = showHistory ? historicalShipments : currentShipments;
-  }
-  
-  // Apply search filter
-  const tableData = baseData.filter((item) => {
-    const matchesSearch =
-      item.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.driver.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.vehicle.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesPod =
-      podFilter === "all" ||
-      (podFilter === "Signed" &&
-        (item.podStatus === "Signed" || showHistory)) ||
-      (podFilter === "Pending" && !item.podStatus && !showHistory);
-    
-    let matchesDate = true;
-    if (showHistory && dateFilter) {
-      const filterDateStr = dateFilter.toDateString();
-      const itemDateStr = new Date(item.originalDate).toDateString();
-      matchesDate = filterDateStr === itemDateStr;
-    }
-    
-    return matchesSearch && matchesPod && matchesDate;
-  });
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const oneWeekAgo = new Date(today);
+  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+  // Per-view datasets
+  const viewData = {
+    "Active Shipments": {
+      current: allShipments
+        .filter((s) => s.status === "In Transit")
+        .map(formatShipment),
+      history: allShipments
+        .filter((s) => s.status === "Delivered" || s.status === "Cancelled")
+        .map(formatShipment),
+    },
+    "Pending Dispatch": {
+      current: allShipments
+        .filter((s) => s.status === "Pending")
+        .map(formatShipment),
+    },
+    "Cancelled Dispatch": {
+      current: allShipments
+        .filter((s) => s.status === "Cancelled")
+        .map(formatShipment),
+    },
+    "Deliveries Today": {
+      // Today's deliveries (within last 7 days = current, older = history)
+      current: allShipments
+        .filter((s) => {
+          if (s.status !== "Delivered" || !s.deliveryDate) return false;
+          const d = new Date(s.deliveryDate);
+          d.setHours(0, 0, 0, 0);
+          return d.getTime() >= oneWeekAgo.getTime();
+        })
+        .map(formatShipment),
+      history: allShipments
+        .filter((s) => {
+          if (s.status !== "Delivered" || !s.deliveryDate) return false;
+          const d = new Date(s.deliveryDate);
+          d.setHours(0, 0, 0, 0);
+          return d.getTime() < oneWeekAgo.getTime();
+        })
+        .map(formatShipment),
+    },
+  };
+
+  const handleStatClick = (title) => {
+    setActiveStatView(title);
+  };
 
   if (activeStatView && !loading) {
     return (
       <StatDetailView
         activeStatView={activeStatView}
+        viewData={viewData[activeStatView] || { current: [] }}
         onBack={() => setActiveStatView(null)}
-        tableData={tableData}
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        podFilter={podFilter}
-        setPodFilter={setPodFilter}
-        dateFilter={dateFilter}
-        setDateFilter={setDateFilter}
-        showHistory={showHistory}
-        setShowHistory={setShowHistory}
       />
     );
   }
@@ -142,12 +129,11 @@ export function DashboardPage() {
         </div>
       ) : (
         <>
-          <DashboardStatsGrid onStatClick={setActiveStatView} stats={stats} />
+          <DashboardStatsGrid onStatClick={handleStatClick} stats={stats} />
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
             <DashboardChart weeklyData={weeklyData} />
-            <PendingPODsPanel pendingPODs={pendingPODs} />
+            <CreateShipmentPanel />
           </div>
-          <LiveShipmentsTable currentShipments={currentShipments} />
         </>
       )}
     </div>

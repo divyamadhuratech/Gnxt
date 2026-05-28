@@ -46,8 +46,8 @@ export function TripFiltersBar({
         <SelectContent>
           <SelectItem value="all">All Statuses ({statusCounts.all})</SelectItem>
           <SelectItem value="Moving">Moving ({statusCounts.Moving})</SelectItem>
-          <SelectItem value="Idle">Idle ({statusCounts.Idle})</SelectItem>
-          <SelectItem value="Stopped">Stopped ({statusCounts.Stopped})</SelectItem>
+          <SelectItem value="Waiting for Dispatch">Waiting for Dispatch ({statusCounts["Waiting for Dispatch"]})</SelectItem>
+          <SelectItem value="Returned">Returned ({statusCounts.Returned})</SelectItem>
         </SelectContent>
       </Select>
 

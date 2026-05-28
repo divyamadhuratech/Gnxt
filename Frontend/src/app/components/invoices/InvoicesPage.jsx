@@ -10,45 +10,36 @@ const API_BASE_URL =
 const itemsPerPage = 15;
 
 export function InvoicesPage() {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [invoices, setInvoices] = useState([]);
+  const [searchQuery, setSearchQuery]   = useState("");
+  const [invoices, setInvoices]         = useState([]);
   const [statusFilter, setStatusFilter] = useState("All");
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage]   = useState(1);
+  const [isHistory, setIsHistory]       = useState(false);
 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading]   = useState(false);
   const [uploading, setUploading] = useState(false);
-
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-
+  const [error, setError]       = useState("");
+  const [success, setSuccess]   = useState("");
   const [totalPages, setTotalPages] = useState(1);
-  const [total, setTotal] = useState(0);
+  const [total, setTotal]       = useState(0);
 
-  const fetchInvoices = async (
-    search = "",
-    status = "All",
-    page = 1
-  ) => {
+  const fetchInvoices = async (search = "", status = "All", page = 1, history = false) => {
     setLoading(true);
     setError("");
-
     try {
       const params = new URLSearchParams({
         search,
-        status: status === "All" ? "" : status,
+        // In history mode always fetch Delivered; otherwise pass the filter (skip "All")
+        status: history ? "Delivered" : (status === "All" ? "" : status),
         page,
         limit: itemsPerPage,
+        history: history ? "true" : "false",
       });
 
-      const res = await fetch(
-        `${API_BASE_URL}/invoices?${params}`
-      );
-
+      const res    = await fetch(`${API_BASE_URL}/invoices?${params}`);
       const result = await res.json();
 
-      if (!res.ok) {
-        throw new Error(result.message);
-      }
+      if (!res.ok) throw new Error(result.message);
 
       setInvoices(result.data || []);
       setTotal(result.pagination.total || 0);
@@ -60,18 +51,25 @@ export function InvoicesPage() {
     }
   };
 
+  // Re-fetch when page changes
   useEffect(() => {
-    fetchInvoices(searchQuery, statusFilter, currentPage);
+    fetchInvoices(searchQuery, statusFilter, currentPage, isHistory);
   }, [currentPage]);
 
+  // Re-fetch (reset to page 1) when search/filter/history mode changes
   useEffect(() => {
     setCurrentPage(1);
-    fetchInvoices(searchQuery, statusFilter, 1);
-  }, [searchQuery, statusFilter]);
+    fetchInvoices(searchQuery, statusFilter, 1, isHistory);
+  }, [searchQuery, statusFilter, isHistory]);
+
+  const handleHistoryToggle = () => {
+    setIsHistory((prev) => !prev);
+    setStatusFilter("All");
+    setSearchQuery("");
+  };
 
   const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
-
     if (!file) return;
 
     const validTypes = [
@@ -79,7 +77,6 @@ export function InvoicesPage() {
       "application/vnd.ms-excel",
       "text/csv",
     ];
-
     if (!validTypes.includes(file.type)) {
       setError("Please upload a valid Excel or CSV file");
       return;
@@ -88,34 +85,18 @@ export function InvoicesPage() {
     setUploading(true);
     setError("");
     setSuccess("");
-
     try {
       const formData = new FormData();
       formData.append("file", file);
 
-      const res = await fetch(
-        `${API_BASE_URL}/invoices/upload`,
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
-
+      const res    = await fetch(`${API_BASE_URL}/invoices/upload`, { method: "POST", body: formData });
       const result = await res.json();
 
-      if (!res.ok) {
-        throw new Error(result.message || "Upload failed");
-      }
+      if (!res.ok) throw new Error(result.message || "Upload failed");
 
-      setSuccess(
-        `✅ ${result.data.invoicesAdded} invoices uploaded successfully`
-      );
-
-      fetchInvoices(searchQuery, statusFilter, currentPage);
-
-      setTimeout(() => {
-        setSuccess("");
-      }, 4000);
+      setSuccess(`✅ ${result.data.invoicesAdded} invoices uploaded successfully`);
+      fetchInvoices(searchQuery, statusFilter, currentPage, isHistory);
+      setTimeout(() => setSuccess(""), 4000);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -129,9 +110,7 @@ export function InvoicesPage() {
       prev
         .map((plant) => ({
           ...plant,
-          invoices: plant.invoices.filter(
-            (inv) => inv._id !== invoiceId
-          ),
+          invoices: plant.invoices.filter((inv) => inv._id !== invoiceId),
         }))
         .filter((plant) => plant.invoices.length > 0)
     );
@@ -143,6 +122,8 @@ export function InvoicesPage() {
         total={total}
         uploading={uploading}
         onFileUpload={handleFileUpload}
+        isHistory={isHistory}
+        onHistoryToggle={handleHistoryToggle}
       />
 
       {error && (
@@ -163,6 +144,7 @@ export function InvoicesPage() {
         onSearchChange={setSearchQuery}
         statusFilter={statusFilter}
         onStatusFilterChange={setStatusFilter}
+        isHistory={isHistory}
       />
 
       <InvoiceTable

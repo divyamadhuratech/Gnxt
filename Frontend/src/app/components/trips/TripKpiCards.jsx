@@ -1,4 +1,4 @@
-import { Truck, Activity, Clock, MapPin } from "lucide-react";
+import { Truck, Activity, Clock, RotateCcw } from "lucide-react";
 
 function KpiCard({ icon, label, value, sub, highlight }) {
   const highlightBorder = highlight
@@ -6,7 +6,9 @@ function KpiCard({ icon, label, value, sub, highlight }) {
       ? "border-emerald-200"
       : highlight === "amber"
         ? "border-amber-200"
-        : "border-red-200"
+        : highlight === "violet"
+          ? "border-violet-200"
+          : "border-border"
     : "border-border";
 
   return (
@@ -43,17 +45,17 @@ export function TripKpiCards({ statusCounts }) {
       />
       <KpiCard
         icon={<Clock className="w-4 h-4 text-amber-500" />}
-        label="Idle"
-        value={`${statusCounts.Idle}`}
+        label="Waiting for Dispatch"
+        value={`${statusCounts["Waiting for Dispatch"]}`}
         sub="Awaiting dispatch"
         highlight="amber"
       />
       <KpiCard
-        icon={<MapPin className="w-4 h-4 text-red-500" />}
-        label="Stopped"
-        value={`${statusCounts.Stopped}`}
-        sub="Delivered / halted"
-        highlight="red"
+        icon={<RotateCcw className="w-4 h-4 text-violet-500" />}
+        label="Returned"
+        value={`${statusCounts.Returned}`}
+        sub="Vehicle returned to base"
+        highlight="violet"
       />
     </div>
   );

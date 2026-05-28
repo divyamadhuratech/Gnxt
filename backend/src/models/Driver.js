@@ -45,6 +45,8 @@ const driverSchema = new mongoose.Schema(
     assignedVehicle: {
       type: String,
       default: null,
+      trim: true,
+      uppercase: true,
     },
     documents: {
       licenseExpiry: Date,
