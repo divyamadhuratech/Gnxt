@@ -16,6 +16,11 @@ export const tripStatusStyles = {
     dot: "bg-blue-500",
   },
  
+  "In Transit": {
+    bg: "bg-amber-50 border-amber-200",
+    text: "text-amber-700",
+    dot: "bg-amber-500",
+  },
 };
 
 export const driverTypeBadgeStyles = {

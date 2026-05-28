@@ -220,10 +220,49 @@ export const getShipmentById = async (req, res) => {
 ───────────────────────────────────────────────── */
 export const updateShipmentStatus = async (req, res) => {
   try {
-    const { status, podReceiverName, podRemarks, podImages } = req.body;
-    const allowed = ["Pending", "In Transit", "Delivered", "Returned", "Cancelled"];
+    const { status, podReceiverName, podRemarks, podImages, destinationId } = req.body;
+    const allowed = ["Pending", "In Transit", "Delivered", "Returned", "Cancelled", "Closed"];
     if (!allowed.includes(status)) {
       return res.status(400).json({ success: false, message: "Invalid status" });
+    }
+
+    if (destinationId) {
+      const shipment = await Shipment.findById(req.params.id);
+      if (!shipment) return res.status(404).json({ success: false, message: "Shipment not found" });
+
+      const dest = shipment.destinations.id(destinationId);
+      if (!dest) return res.status(404).json({ success: false, message: "Destination not found" });
+
+      dest.status = status;
+      if (podReceiverName !== undefined) dest.podReceiverName = podReceiverName;
+      if (podRemarks !== undefined) dest.podRemarks = podRemarks;
+      if (podImages !== undefined) dest.podImages = podImages;
+
+      const allDelivered = shipment.destinations.every((d) => d.status === "Delivered");
+      if (allDelivered) {
+        shipment.status = "Delivered";
+        shipment.deliveryDate = new Date();
+      }
+
+      await shipment.save();
+
+      if (dest.invoiceIds?.length) {
+        let targetInvoiceStatus = "Assigned";
+        if (status === "Delivered") {
+          targetInvoiceStatus = "Delivered";
+        }
+        await Invoice.updateMany(
+          { _id: { $in: dest.invoiceIds } },
+          { status: targetInvoiceStatus }
+        );
+      }
+
+      const populatedShipment = await Shipment.findById(shipment._id)
+        .populate("vehicleId", "vehicleNo type model capacityKg")
+        .populate("driverId", "name phone licenseNumber driverType")
+        .lean();
+
+      return res.status(200).json({ success: true, message: "Destination status updated", data: populatedShipment });
     }
 
     const updateFields = {
@@ -240,7 +279,10 @@ export const updateShipmentStatus = async (req, res) => {
       req.params.id,
       updateFields,
       { new: true }
-    );
+    )
+      .populate("vehicleId", "vehicleNo type model capacityKg")
+      .populate("driverId", "name phone licenseNumber driverType")
+      .lean();
     if (!shipment) return res.status(404).json({ success: false, message: "Shipment not found" });
 
     // Free vehicle & driver when returned or cancelled
@@ -267,7 +309,7 @@ export const updateShipmentStatus = async (req, res) => {
       let targetInvoiceStatus = "Assigned";
       if (status === "In Transit") {
         targetInvoiceStatus = "In Transit";
-      } else if (status === "Delivered") {
+      } else if (status === "Delivered" || status === "Closed") {
         targetInvoiceStatus = "Delivered";
       } else if (status === "Returned" || status === "Cancelled") {
         targetInvoiceStatus = "Pending";
@@ -419,7 +461,10 @@ export const updateShipment = async (req, res) => {
       }
     }
 
-    const shipment = await Shipment.findByIdAndUpdate(req.params.id, update, { new: true });
+    const shipment = await Shipment.findByIdAndUpdate(req.params.id, update, { new: true })
+      .populate("vehicleId", "vehicleNo type model capacityKg")
+      .populate("driverId", "name phone licenseNumber driverType")
+      .lean();
     res.status(200).json({ success: true, message: "Shipment updated", data: shipment });
   } catch (err) {
     console.error("Update shipment error:", err);

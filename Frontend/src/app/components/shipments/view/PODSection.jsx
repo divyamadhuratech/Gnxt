@@ -1,4 +1,5 @@
-import { FileCheck, Clock, Camera, FileText, Image, Eye, Download, Upload, X } from "lucide-react";
+import React, { useState, useRef } from "react";
+import { FileCheck, Clock, Camera, FileText, Image, Eye, Download, Upload, X, CheckCircle2, CircleDot, Circle, Disc, MapPin, Hash, Weight, ChevronRight } from "lucide-react";
 import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
 import { SectionLabel, DetailField } from "../ui/ShipmentUIComponents";
@@ -6,248 +7,255 @@ import { SectionLabel, DetailField } from "../ui/ShipmentUIComponents";
 export function PODSection({
   shipment,
   detail,
-  totalQty,
-  podImages,
-  setPodImages,
-  podRemarks,
-  setPodRemarks,
-  podReceiverName,
-  setPodReceiverName,
-  podUploading,
-  setPodUploading,
-  podViewImage,
+  onSaveDestinationPOD,
+  onDestinationDeliverySuccess,
   setPodViewImage,
-  fileInputRef,
-  onSavePOD,
 }) {
-  // Delivery timestamp from timeline
-  const deliveredTimestamp =
-    detail?.timeline?.find((t) => t.step === "Delivered")?.timestamp ?? "—";
-
-  // POD reference derived from shipment ID
-  const podRef = shipment.shipmentId
-    ? `POD-${shipment.shipmentId.replace("SHP-", "")}`
-    : shipment.id
-    ? `POD-${shipment.id.replace("SHP-", "")}`
-    : "—";
+  const destinations = shipment?.destinations ?? [];
 
   return (
-    <div>
-      <SectionLabel icon={<FileCheck className="w-4 h-4" />} title="Proof of Dispatch (POD)" />
-      <div className="mt-3 bg-white border border-border rounded-xl overflow-hidden">
-        {/* POD Status Header */}
-        <div className="px-5 py-4 border-b border-border flex items-center justify-between bg-[#fafbfc]">
-          <div className="flex items-center gap-3">
-            <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                shipment.status === "Delivered"
-                  ? "bg-emerald-100"
-                  : shipment.status === "In Transit"
-                  ? "bg-amber-100"
-                  : "bg-gray-100"
-              }`}
-            >
-              <FileCheck
-                className={`w-4 h-4 ${
-                  shipment.status === "Delivered"
-                    ? "text-emerald-600"
-                    : shipment.status === "In Transit"
-                    ? "text-amber-600"
-                    : "text-gray-400"
-                }`}
-              />
-            </div>
-            <div>
-              <p className="text-sm text-foreground">POD Status</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {shipment.status === "Delivered"
-                  ? "Dispatch confirmed — POD available"
-                  : shipment.status === "In Transit"
-                  ? "Awaiting delivery confirmation"
-                  : shipment.status === "Cancelled"
-                  ? "Shipment cancelled — POD not applicable"
-                  : "Pending dispatch — POD not yet generated"}
-              </p>
+    <div className="space-y-6">
+      <SectionLabel icon={<FileCheck className="w-4 h-4" />} title="Proof of Dispatch & Destination Delivery" />
+      <div className="space-y-4">
+        {destinations.map((dest, index) => (
+          <DestinationPODCard
+            key={dest._id || index}
+            dest={dest}
+            index={index}
+            totalCount={destinations.length}
+            timeline={detail?.timeline}
+            onSavePOD={onSaveDestinationPOD}
+            onDeliverySuccess={onDestinationDeliverySuccess}
+            setPodViewImage={setPodViewImage}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DestinationPODCard({
+  dest,
+  index,
+  totalCount,
+  timeline,
+  onSavePOD,
+  onDeliverySuccess,
+  setPodViewImage,
+}) {
+  const [receiverName, setReceiverName] = useState(dest.podReceiverName || "");
+  const [remarks, setRemarks] = useState(dest.podRemarks || "");
+  const [images, setImages] = useState(dest.podImages || []);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
+
+  const isDelivered = dest.status === "Delivered";
+
+  // Delivery timestamp from timeline
+  const deliveredTimestamp =
+    timeline?.find((t) => t.step === "Delivered")?.timestamp ?? "—";
+
+  const lrDisplay = dest.lrNumber || `LR-TEMP-${index + 1}`;
+
+  const handleSave = async () => {
+    setUploading(true);
+    try {
+      await onSavePOD(dest._id, {
+        podReceiverName: receiverName,
+        podRemarks: remarks,
+        podImages: images,
+      });
+      alert("POD saved successfully for " + dest.customerName);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to save POD: " + err.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="bg-white border border-border rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+      {/* Destination Header */}
+      <div className="px-5 py-3.5 border-b border-border flex items-center justify-between bg-[#fafbfc]">
+        <div className="flex items-center gap-3">
+          <div className="w-6 h-6 rounded-full bg-[#1d4ed8]/10 text-[#1d4ed8] text-xs font-bold flex items-center justify-center">
+            {index + 1}
+          </div>
+          <div>
+            <span className="text-xs font-semibold text-[#1d4ed8]">Destination {index + 1} of {totalCount}</span>
+            <span className="ml-2.5 text-xs text-muted-foreground font-semibold">LR: {lrDisplay}</span>
+          </div>
+        </div>
+        <span
+          className={`inline-flex items-center gap-1.5 text-[10px] px-2.5 py-0.5 rounded-full border font-bold uppercase tracking-wider ${
+            isDelivered
+              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+              : "bg-amber-50 text-amber-700 border-amber-200"
+          }`}
+        >
+          {isDelivered ? (
+            <><CheckCircle2 className="w-3 h-3" /> Signed & Delivered</>
+          ) : (
+            <><Clock className="w-3 h-3" /> Awaiting Delivery</>
+          )}
+        </span>
+      </div>
+
+      {/* Destination Info & Items Breakdown Combined */}
+      <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-6 divide-y md:divide-y-0 md:divide-x divide-border">
+        {/* Left Side: Destination Details */}
+        <div className="space-y-4 pr-0 md:pr-6">
+          <div>
+            <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Customer Info</h4>
+            <p className="text-base text-foreground font-bold mt-1.5">{dest.customerName || "—"}</p>
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1 font-semibold">
+              <MapPin className="w-3.5 h-3.5 text-slate-400" />
+              <span>{dest.deliveryLocation || "—"}</span>
+              <span className="text-slate-300">|</span>
+              <span>Ref: {dest.plantReferenceNumber || "—"}</span>
             </div>
           </div>
-          <span
-            className={`inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border ${
-              shipment.status === "Delivered"
-                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                : shipment.status === "In Transit"
-                ? "bg-amber-50 text-amber-700 border-amber-200"
-                : "bg-gray-50 text-gray-500 border-gray-200"
-            }`}
-          >
-            {shipment.status === "Delivered" ? (
-              <><FileCheck className="w-3 h-3" /> Signed</>
-            ) : shipment.status === "In Transit" ? (
-              <><Clock className="w-3 h-3" /> Pending</>
-            ) : shipment.status === "Cancelled" ? (
-              "N/A"
-            ) : (
-              "Not Generated"
-            )}
-          </span>
+
+          <div className="grid grid-cols-2 gap-4 bg-[#fafbfc] border border-border p-3.5 rounded-xl">
+            <DetailField label="Weight" value={`${dest.weightKg} kg`} />
+            <DetailField label="Quantity" value={`${dest.totalQuantity || (dest.totalTyres || 0) + (dest.totalTubes || 0) + (dest.totalFlaps || 0)} items`} />
+          </div>
         </div>
 
-        {/* POD Details — Delivered only */}
-        {shipment.status === "Delivered" && (
-          <div className="p-5 space-y-5">
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* Receiver name — from podReceiverName state (filled by admin) or blank */}
-              <DetailField
-                label="Receiver Name"
-                value={podReceiverName || "—"}
-              />
-              <DetailField label="Received Date"  value={deliveredTimestamp} />
-              <DetailField label="POD Reference">
-                <span className="text-sm text-[#1d4ed8]">{podRef}</span>
-              </DetailField>
-              <DetailField
-                label="Delivery Remarks"
-                value={podRemarks || "—"}
-              />
-            </div>
-
-            {/* Proof images — only user-uploaded ones */}
-            {podImages.length > 0 && (
-              <div>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2.5">
-                  Dispatch Proof Images
-                </p>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                  {podImages.map((img, idx) => (
-                    <div
-                      key={idx}
-                      className="relative group rounded-xl border border-border overflow-hidden bg-[#fafbfc] aspect-[4/3]"
-                    >
-                      <img
-                        src={img}
-                        alt={`POD upload ${idx + 1}`}
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                        <button
-                          className="w-8 h-8 rounded-lg bg-white/90 flex items-center justify-center hover:bg-white"
-                          onClick={() => setPodViewImage(img)}
-                        >
-                          <Eye className="w-4 h-4 text-foreground" />
-                        </button>
-                        <button
-                          className="w-8 h-8 rounded-lg bg-red-500/90 flex items-center justify-center hover:bg-red-500"
-                          onClick={() =>
-                            setPodImages((prev) => prev.filter((_, i) => i !== idx))
-                          }
-                        >
-                          <X className="w-4 h-4 text-white" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+        {/* Right Side: Items & POD status */}
+        <div className="space-y-4 pl-0 md:pl-6 pt-4 md:pt-0">
+          <div>
+            <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Cargo Items</h4>
+            <div className="flex flex-wrap items-center gap-4 mt-3">
+              <div className="flex items-center gap-1.5">
+                <CircleDot className="w-3.5 h-3.5 text-blue-600" />
+                <span className="text-xs text-muted-foreground">Tyres:</span>
+                <span className="text-xs font-semibold text-foreground">{dest.totalTyres || 0}</span>
               </div>
-            )}
-          </div>
-        )}
-
-        {/* Admin Upload Area */}
-        <div className="border-t border-border p-5">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Upload className="w-4 h-4 text-[#1d4ed8]" />
-              <p className="text-xs text-foreground">Admin: Upload POD Documents</p>
+              <div className="flex items-center gap-1.5">
+                <Disc className="w-3.5 h-3.5 text-amber-600" />
+                <span className="text-xs text-muted-foreground">Flaps:</span>
+                <span className="text-xs font-semibold text-foreground">{dest.totalFlaps || 0}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Circle className="w-3.5 h-3.5 text-violet-600" />
+                <span className="text-xs text-muted-foreground">Tubes:</span>
+                <span className="text-xs font-semibold text-foreground">{dest.totalTubes || 0}</span>
+              </div>
             </div>
-            {podImages.length > 0 && (
-              <Badge
-                variant="outline"
-                className="text-[10px] px-2 py-0.5 rounded-md border-[#c7d7fe] text-[#4338ca] bg-[#eef2ff]"
+          </div>
+
+          {/* Render details if delivered, form if pending */}
+          {isDelivered ? (
+            <div className="bg-emerald-50/40 border border-emerald-100 rounded-xl p-4 space-y-3.5">
+              <div className="grid grid-cols-2 gap-4">
+                <DetailField label="Receiver Name" value={dest.podReceiverName || "—"} />
+                <DetailField label="Received Date" value={deliveredTimestamp} />
+                <DetailField label="Delivery Remarks" value={dest.podRemarks || "—"} />
+              </div>
+              {dest.podImages?.length > 0 && (
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">Proof Images</p>
+                  <div className="flex flex-wrap gap-2">
+                    {dest.podImages.map((img, idx) => (
+                      <div key={idx} className="relative w-12 h-12 rounded border border-border overflow-hidden bg-white cursor-pointer hover:border-[#1d4ed8] transition-colors" onClick={() => setPodViewImage(img)}>
+                        <img src={img} alt="POD" className="w-full h-full object-cover" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Image upload widget */}
+              <div
+                className="border border-dashed border-border rounded-xl p-3 flex flex-col items-center gap-1 hover:border-[#1d4ed8]/40 hover:bg-[#fafbfe] transition-colors cursor-pointer"
+                onClick={() => fileInputRef.current?.click()}
               >
-                {podImages.length} uploaded
-              </Badge>
-            )}
-          </div>
-
-          <div
-            className="border-2 border-dashed border-border rounded-xl p-6 flex flex-col items-center gap-3 hover:border-[#1d4ed8]/40 hover:bg-[#fafbfe] transition-colors cursor-pointer"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <div className="w-12 h-12 rounded-full bg-[#eef2ff] flex items-center justify-center">
-              <Upload className="w-5 h-5 text-[#1d4ed8]" />
-            </div>
-            <div className="text-center">
-              <p className="text-sm text-foreground">Click to upload POD images</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Supports JPG, PNG, PDF — Max 5MB per file
-              </p>
-            </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*,.pdf"
-              multiple
-              className="hidden"
-              onChange={(e) => {
-                const files = e.target.files;
-                if (files) {
-                  Array.from(files).forEach((file) => {
-                    const reader = new FileReader();
-                    reader.onload = (ev) => {
-                      if (ev.target?.result)
-                        setPodImages((prev) => [...prev, ev.target.result]);
-                    };
-                    reader.readAsDataURL(file);
-                  });
-                }
-                e.target.value = "";
-              }}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
-            {[
-              {
-                label: "Receiver Name",
-                placeholder: "Enter receiver's name...",
-                value: podReceiverName,
-                onChange: setPodReceiverName,
-              },
-              {
-                label: "Remarks",
-                placeholder: "Add delivery remarks...",
-                value: podRemarks,
-                onChange: setPodRemarks,
-              },
-            ].map(({ label, placeholder, value, onChange }) => (
-              <div key={label} className="space-y-1.5">
-                <label className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                  {label}
-                </label>
+                <div className="w-8 h-8 rounded-full bg-[#eef2ff] flex items-center justify-center">
+                  <Upload className="w-4 h-4 text-[#1d4ed8]" />
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-foreground font-medium">Click to upload POD images</p>
+                  {images.length > 0 && (
+                    <Badge variant="outline" className="mt-1 text-[9px] px-1.5 py-0 rounded bg-emerald-50 border-emerald-200 text-emerald-700">
+                      {images.length} uploaded
+                    </Badge>
+                  )}
+                </div>
                 <input
-                  type="text"
-                  placeholder={placeholder}
-                  value={value}
-                  onChange={(e) => onChange(e.target.value)}
-                  className="w-full h-9 px-3 text-sm bg-white border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1d4ed8]/20 focus:border-[#1d4ed8] transition-colors"
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*,.pdf"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    const files = e.target.files;
+                    if (files) {
+                      Array.from(files).forEach((file) => {
+                        const reader = new FileReader();
+                        reader.onload = (ev) => {
+                          if (ev.target?.result)
+                            setImages((prev) => [...prev, ev.target.result]);
+                        };
+                        reader.readAsDataURL(file);
+                      });
+                    }
+                    e.target.value = "";
+                  }}
                 />
               </div>
-            ))}
-          </div>
 
-          <div className="flex justify-end mt-4">
-            <Button
-              className="gap-2 bg-[#1d4ed8] hover:bg-[#1e40af] text-white shadow-sm"
-              disabled={podImages.length === 0 && !podReceiverName && !podRemarks}
-              onClick={onSavePOD}
-            >
-              {podUploading ? (
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <FileCheck className="w-4 h-4" />
-              )}
-              {podUploading ? "Saving..." : "Save POD Data"}
-            </Button>
-          </div>
+              {/* Input fields */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[9px] text-muted-foreground uppercase tracking-wider">Receiver Name</label>
+                  <input
+                    type="text"
+                    placeholder="Receiver's name..."
+                    value={receiverName}
+                    onChange={(e) => setReceiverName(e.target.value)}
+                    className="w-full h-8 px-2 text-xs bg-white border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-[#1d4ed8]/20 focus:border-[#1d4ed8]"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] text-muted-foreground uppercase tracking-wider">Remarks</label>
+                  <input
+                    type="text"
+                    placeholder="Remarks..."
+                    value={remarks}
+                    onChange={(e) => setRemarks(e.target.value)}
+                    className="w-full h-8 px-2 text-xs bg-white border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-[#1d4ed8]/20 focus:border-[#1d4ed8]"
+                  />
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end gap-2.5 pt-1.5">
+                <Button
+                  className="gap-1.5 h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm font-bold"
+                  onClick={() => onDeliverySuccess(dest._id)}
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  Delivery Success
+                </Button>
+                <Button
+                  className="gap-1.5 h-8 text-xs bg-[#1d4ed8] hover:bg-[#1e40af] text-white shadow-sm font-bold"
+                  disabled={images.length === 0 && !receiverName && !remarks}
+                  onClick={handleSave}
+                >
+                  {uploading ? (
+                    <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <FileCheck className="w-3.5 h-3.5" />
+                  )}
+                  {uploading ? "Saving..." : "Save POD Data"}
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

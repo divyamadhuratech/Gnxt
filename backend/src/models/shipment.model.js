@@ -38,6 +38,10 @@ const destinationSchema = new mongoose.Schema(
     totalFlaps: { type: Number, default: 0, min: 0 },
     totalQuantity: { type: Number, default: 0 },
     weightKg: { type: Number, default: 0, min: 0 },
+    status: { type: String, enum: ["Pending", "Delivered"], default: "Pending" },
+    podReceiverName: { type: String, trim: true, default: "" },
+    podRemarks: { type: String, trim: true, default: "" },
+    podImages: [{ type: String }],
   },
   { _id: true }
 );
@@ -78,7 +82,7 @@ const shipmentSchema = new mongoose.Schema(
     totalQuantity: { type: Number, default: 0 },
     status: {
       type: String,
-      enum: ["Pending", "In Transit", "Delivered", "Cancelled"],
+      enum: ["Pending", "In Transit", "Delivered", "Cancelled", "Closed"],
       default: "Pending",
       index: true,
     },

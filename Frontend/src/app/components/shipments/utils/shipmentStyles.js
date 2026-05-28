@@ -17,10 +17,15 @@ export const statusConfig = {
     label: "Cancelled",
     className: "bg-red-50 text-red-700 border-red-200",
   },
+  Closed: {
+    label: "Closed",
+    className: "bg-slate-100 text-slate-800 border-slate-300",
+  },
 };
 
 export function getPODConfig(status) {
   switch (status) {
+    case "Closed":
     case "Delivered":
       return {
         label: "Signed",

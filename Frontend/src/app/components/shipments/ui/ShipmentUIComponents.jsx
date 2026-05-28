@@ -51,14 +51,14 @@ export function ValidationWarning({ message }) {
   );
 }
 
-export function OverviewCell({ label, value, icon }) {
+export function OverviewCell({ label, value, icon, children }) {
   return (
     <div className="px-4 py-3.5 space-y-1">
       <p className="text-[10px] text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
         {icon}
         {label}
       </p>
-      <p className="text-sm text-foreground truncate">{value}</p>
+      {children ?? <p className="text-sm text-foreground truncate">{value}</p>}
     </div>
   );
 }

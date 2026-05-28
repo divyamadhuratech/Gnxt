@@ -16,6 +16,7 @@ const statusConfig = {
   "In Transit": { className: "bg-blue-50 text-blue-700 border-blue-200",          dotColor: "bg-blue-500"    },
   Delivered:    { className: "bg-emerald-50 text-emerald-700 border-emerald-200", dotColor: "bg-emerald-500" },
   Cancelled:    { className: "bg-red-50 text-red-700 border-red-200",             dotColor: "bg-red-500"     },
+  Closed:       { className: "bg-slate-100 text-slate-800 border-slate-300",      dotColor: "bg-slate-500"   },
 };
 
 /* ── Build detail object from real shipment data ── */
@@ -44,7 +45,7 @@ function buildDetail(s, liveGps) {
   const dispatched        = fmt(s.dispatchDate);
   const delivered         = fmt(s.deliveryDate);
 
-  const isDelivered = s.status === "Delivered";
+  const isDelivered = s.status === "Delivered" || s.status === "Closed";
   const isInTransit = s.status === "In Transit";
   const isPending   = s.status === "Pending";
 
@@ -116,16 +117,11 @@ function buildDetail(s, liveGps) {
 }
 
 export function ViewShipmentSheet({ open, onOpenChange, shipment, onStatusChange, onEdit }) {
-  const [podImages, setPodImages]             = useState([]);
-  const [podRemarks, setPodRemarks]           = useState("");
-  const [podReceiverName, setPodReceiverName] = useState("");
-  const [podUploading, setPodUploading]       = useState(false);
   const [podViewImage, setPodViewImage]       = useState(null);
   const [fullShipment, setFullShipment]       = useState(null);
   const [loadingDetail, setLoadingDetail]     = useState(false);
   const [liveGps, setLiveGps]                 = useState(null);
   const [gpsError, setGpsError]               = useState(null);
-  const fileInputRef  = useRef(null);
   const gpsIntervalRef = useRef(null);
 
   /* ── Fetch shipment detail ── */
@@ -140,21 +136,12 @@ export function ViewShipmentSheet({ open, onOpenChange, shipment, onStatusChange
       .then((res) => {
         if (res.success && res.data) {
           setFullShipment(res.data);
-          setPodImages(res.data.podImages || []);
-          setPodRemarks(res.data.podRemarks || "");
-          setPodReceiverName(res.data.podReceiverName || "");
         } else {
           setFullShipment(shipment);
-          setPodImages(shipment?.podImages || []);
-          setPodRemarks(shipment?.podRemarks || "");
-          setPodReceiverName(shipment?.podReceiverName || "");
         }
       })
       .catch(() => {
         setFullShipment(shipment);
-        setPodImages(shipment?.podImages || []);
-        setPodRemarks(shipment?.podRemarks || "");
-        setPodReceiverName(shipment?.podReceiverName || "");
       })
       .finally(() => setLoadingDetail(false));
   }, [open, shipment?._id]);
@@ -227,39 +214,52 @@ export function ViewShipmentSheet({ open, onOpenChange, shipment, onStatusChange
     }
   };
 
-  const handleSavePOD = async () => {
-    setPodUploading(true);
+  const handleSaveDestinationPOD = async (destId, podData) => {
     try {
       const res = await fetch(`${API_BASE_URL}/shipments/${s._id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          destinationId: destId,
           status: "Delivered",
-          podReceiverName,
-          podRemarks,
-          podImages,
+          podReceiverName: podData.podReceiverName,
+          podRemarks: podData.podRemarks,
+          podImages: podData.podImages,
         }),
       });
       const result = await res.json();
       if (result.success) {
-        setFullShipment((prev) => ({
-          ...(prev ?? s),
-          status: "Delivered",
-          podReceiverName,
-          podRemarks,
-          podImages,
-          ...result.data,
-        }));
+        setFullShipment((prev) => ({ ...(prev ?? s), ...result.data }));
         if (onStatusChange) onStatusChange(result.data);
-        alert("POD saved successfully and shipment marked as Delivered!");
       } else {
         alert(result.message || "Failed to save POD data");
       }
     } catch (err) {
-      console.error("Save POD error:", err);
+      console.error("Save destination POD error:", err);
       alert("Error saving POD data");
-    } finally {
-      setPodUploading(false);
+    }
+  };
+
+  const handleDestinationDeliverySuccess = async (destId) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/shipments/${s._id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          destinationId: destId,
+          status: "Delivered",
+        }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        setFullShipment((prev) => ({ ...(prev ?? s), ...result.data }));
+        if (onStatusChange) onStatusChange(result.data);
+      } else {
+        alert(result.message || "Failed to mark delivery success");
+      }
+    } catch (err) {
+      console.error("Destination delivery success error:", err);
+      alert("Error updating delivery status");
     }
   };
 
@@ -302,17 +302,13 @@ export function ViewShipmentSheet({ open, onOpenChange, shipment, onStatusChange
 
               <ShipmentOverview shipment={viewShipment} detail={detail} totalQty={totalQty} totalWt={totalWt} />
               <PODSection
-                shipment={viewShipment} detail={detail} totalQty={totalQty}
-                podImages={podImages}             setPodImages={setPodImages}
-                podRemarks={podRemarks}           setPodRemarks={setPodRemarks}
-                podReceiverName={podReceiverName} setPodReceiverName={setPodReceiverName}
-                podUploading={podUploading}       setPodUploading={setPodUploading}
-                podViewImage={podViewImage}       setPodViewImage={setPodViewImage}
-                fileInputRef={fileInputRef}
-                onSavePOD={handleSavePOD}
+                shipment={viewShipment}
+                detail={detail}
+                onSaveDestinationPOD={handleSaveDestinationPOD}
+                onDestinationDeliverySuccess={handleDestinationDeliverySuccess}
+                setPodViewImage={setPodViewImage}
               />
               <VehicleDriverDetails shipment={viewShipment} detail={detail} loadUtil={loadUtil} />
-              <ItemsBreakdown       shipment={viewShipment} detail={detail} totalQty={totalQty} totalWt={totalWt} />
               <ShipmentTimeline     detail={detail} />
 
               {podViewImage && (
@@ -357,6 +353,17 @@ export function ViewShipmentSheet({ open, onOpenChange, shipment, onStatusChange
               </>
             )}
             {s.status === "Delivered" && (
+              <>
+                <Button variant="outline" className="border-border gap-2"><FileText className="w-4 h-4" />View Proof of Delivery</Button>
+                <Button 
+                  className="gap-2 bg-slate-700 hover:bg-slate-800 text-white shadow-sm"
+                  onClick={() => handleStatusUpdate("Closed")}
+                >
+                  <CheckCircle2 className="w-4 h-4" />Close Shipment
+                </Button>
+              </>
+            )}
+            {s.status === "Closed" && (
               <>
                 <Button variant="outline" className="border-border gap-2"><FileText className="w-4 h-4" />View Proof of Delivery</Button>
                 <Button className="gap-2 bg-[#1d4ed8] hover:bg-[#1e40af] text-white shadow-sm"><Download className="w-4 h-4" />Download Invoice</Button>

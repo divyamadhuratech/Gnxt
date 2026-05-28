@@ -84,8 +84,12 @@ export function DriverTable({
               </TableRow>
             ) : (
               drivers.map((driver) => {
-                const statusStyle = tripStatusStyles[driver.tripStatus];
-                const typeStyle = driverTypeBadgeStyles[driver.driverType];
+                const statusStyle = tripStatusStyles[driver.tripStatus] || {
+                  bg: "bg-slate-50 border-slate-200",
+                  text: "text-slate-600",
+                  dot: "bg-slate-400",
+                };
+                const typeStyle = driverTypeBadgeStyles[driver.driverType] || "bg-slate-50 text-slate-700 border-slate-200";
 
                 return (
                   <TableRow
