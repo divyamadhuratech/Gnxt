@@ -18,6 +18,7 @@ export function PODSection({
   podViewImage,
   setPodViewImage,
   fileInputRef,
+  onSavePOD,
 }) {
   // Delivery timestamp from timeline
   const deliveredTimestamp =
@@ -237,13 +238,7 @@ export function PODSection({
             <Button
               className="gap-2 bg-[#1d4ed8] hover:bg-[#1e40af] text-white shadow-sm"
               disabled={podImages.length === 0 && !podReceiverName && !podRemarks}
-              onClick={() => {
-                setPodUploading(true);
-                setTimeout(() => {
-                  setPodUploading(false);
-                  alert("POD data saved successfully!");
-                }, 1000);
-              }}
+              onClick={onSavePOD}
             >
               {podUploading ? (
                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />

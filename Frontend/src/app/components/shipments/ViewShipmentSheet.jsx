@@ -3,7 +3,6 @@ import { FileText, Download, Edit, XCircle, Phone, CheckCircle2, X, Loader2, Wif
 import { Button } from "../ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "../ui/sheet";
 import { ShipmentOverview }     from "./view/ShipmentOverview";
-import { TrackingSection }      from "./view/TrackingSection";
 import { PODSection }           from "./view/PODSection";
 import { VehicleDriverDetails } from "./view/VehicleDriverDetails";
 import { ItemsBreakdown }       from "./view/ItemsBreakdown";
@@ -138,8 +137,25 @@ export function ViewShipmentSheet({ open, onOpenChange, shipment, onStatusChange
     setLoadingDetail(true);
     fetch(`${API_BASE_URL}/shipments/${shipment._id}`)
       .then((r) => r.json())
-      .then((res) => { if (res.success) setFullShipment(res.data); else setFullShipment(shipment); })
-      .catch(() => setFullShipment(shipment))
+      .then((res) => {
+        if (res.success && res.data) {
+          setFullShipment(res.data);
+          setPodImages(res.data.podImages || []);
+          setPodRemarks(res.data.podRemarks || "");
+          setPodReceiverName(res.data.podReceiverName || "");
+        } else {
+          setFullShipment(shipment);
+          setPodImages(shipment?.podImages || []);
+          setPodRemarks(shipment?.podRemarks || "");
+          setPodReceiverName(shipment?.podReceiverName || "");
+        }
+      })
+      .catch(() => {
+        setFullShipment(shipment);
+        setPodImages(shipment?.podImages || []);
+        setPodRemarks(shipment?.podRemarks || "");
+        setPodReceiverName(shipment?.podReceiverName || "");
+      })
       .finally(() => setLoadingDetail(false));
   }, [open, shipment?._id]);
 
@@ -211,6 +227,42 @@ export function ViewShipmentSheet({ open, onOpenChange, shipment, onStatusChange
     }
   };
 
+  const handleSavePOD = async () => {
+    setPodUploading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/shipments/${s._id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "Delivered",
+          podReceiverName,
+          podRemarks,
+          podImages,
+        }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        setFullShipment((prev) => ({
+          ...(prev ?? s),
+          status: "Delivered",
+          podReceiverName,
+          podRemarks,
+          podImages,
+          ...result.data,
+        }));
+        if (onStatusChange) onStatusChange(result.data);
+        alert("POD saved successfully and shipment marked as Delivered!");
+      } else {
+        alert(result.message || "Failed to save POD data");
+      }
+    } catch (err) {
+      console.error("Save POD error:", err);
+      alert("Error saving POD data");
+    } finally {
+      setPodUploading(false);
+    }
+  };
+
   /* ── GPS accuracy label ── */
   const accLabel = (acc) => acc === 3 ? "High" : acc === 2 ? "Moderate" : acc === 1 ? "Low" : "—";
 
@@ -227,21 +279,7 @@ export function ViewShipmentSheet({ open, onOpenChange, shipment, onStatusChange
             </SheetDescription>
           </div>
           <div className="flex items-center gap-3">
-            {/* GPS live badge — clearly shows real vs no-signal */}
-            {s.status === "In Transit" && (
-              liveGps ? (
-                <div className="flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700">
-                  <Wifi className="w-3 h-3" />
-                  <span className="animate-pulse w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
-                  GPS Live · {(liveGps.speed ?? 0).toFixed(1)} km/h
-                </div>
-              ) : (
-                <div className="flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-full bg-gray-50 border border-gray-200 text-gray-500">
-                  <WifiOff className="w-3 h-3" />
-                  No GPS Signal
-                </div>
-              )
-            )}
+
             <div className="bg-[#f0f4ff] border border-[#c7d7fe] rounded-lg px-4 py-2">
               <p className="text-[10px] text-[#4b6cb7] tracking-wide uppercase">Shipment ID</p>
               <p className="text-sm text-[#1d4ed8] tracking-tight">{s.shipmentId ?? s._id}</p>
@@ -262,82 +300,7 @@ export function ViewShipmentSheet({ open, onOpenChange, shipment, onStatusChange
           ) : detail ? (
             <div className="max-w-6xl mx-auto px-8 py-6 space-y-8">
 
-              {/* ── GPS data verification panel ── */}
-              {s.status === "In Transit" && (
-                liveGps ? (
-                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-5 py-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Wifi className="w-4 h-4 text-emerald-600" />
-                      <span className="text-sm text-emerald-800">Live GPS Data — Device {liveGps.deviceId}</span>
-                      <span className="ml-auto text-[10px] text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200">
-                        REAL DATA
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                      <div className="bg-white rounded-lg px-3 py-2 border border-emerald-100">
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Coordinates</p>
-                        <p className="text-foreground mt-0.5 tabular-nums">
-                          {liveGps.lat?.toFixed(5)}° N<br />{liveGps.lng?.toFixed(5)}° E
-                        </p>
-                      </div>
-                      <div className="bg-white rounded-lg px-3 py-2 border border-emerald-100">
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Speed</p>
-                        <p className="text-foreground mt-0.5 tabular-nums text-base">
-                          {(liveGps.speed ?? 0).toFixed(1)} km/h
-                        </p>
-                        <p className="text-[10px] text-muted-foreground">
-                          {liveGps.vehicleStatus}
-                        </p>
-                      </div>
-                      <div className="bg-white rounded-lg px-3 py-2 border border-emerald-100">
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">GPS Quality</p>
-                        <p className="text-foreground mt-0.5">
-                          {accLabel(liveGps.acc)} accuracy
-                        </p>
-                        <p className="text-[10px] text-muted-foreground">
-                          {liveGps.satellites} satellites · {liveGps.altitude?.toFixed(1)} m alt
-                        </p>
-                      </div>
-                      <div className="bg-white rounded-lg px-3 py-2 border border-emerald-100">
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Heading · Fix Time</p>
-                        <p className="text-foreground mt-0.5">{liveGps.heading?.toFixed(1)}°</p>
-                        <p className="text-[10px] text-muted-foreground">
-                          {liveGps.fixTime
-                            ? new Date(liveGps.fixTime).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
-                            : "—"}
-                        </p>
-                      </div>
-                    </div>
-                    {/* Google Maps verification link */}
-                    <a
-                      href={`https://www.google.com/maps?q=${liveGps.lat},${liveGps.lng}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-3 inline-flex items-center gap-1.5 text-[11px] text-emerald-700 hover:text-emerald-900 underline underline-offset-2"
-                    >
-                      <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                      Verify on Google Maps → {liveGps.lat?.toFixed(5)}, {liveGps.lng?.toFixed(5)}
-                    </a>
-                  </div>
-                ) : (
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 flex items-center gap-3">
-                    <WifiOff className="w-4 h-4 text-amber-600 shrink-0" />
-                    <div>
-                      <p className="text-sm text-amber-800">
-                        {gpsError === "no_data"
-                          ? "No GPS fix received yet from this vehicle's device."
-                          : "GPS service unavailable — check backend connection."}
-                      </p>
-                      <p className="text-xs text-amber-600 mt-0.5">
-                        Vehicle: {viewShipment.vehicleNumber} · Polling every 10 s
-                      </p>
-                    </div>
-                  </div>
-                )
-              )}
-
               <ShipmentOverview shipment={viewShipment} detail={detail} totalQty={totalQty} totalWt={totalWt} />
-              <TrackingSection  shipment={viewShipment} detail={detail} />
               <PODSection
                 shipment={viewShipment} detail={detail} totalQty={totalQty}
                 podImages={podImages}             setPodImages={setPodImages}
@@ -346,6 +309,7 @@ export function ViewShipmentSheet({ open, onOpenChange, shipment, onStatusChange
                 podUploading={podUploading}       setPodUploading={setPodUploading}
                 podViewImage={podViewImage}       setPodViewImage={setPodViewImage}
                 fileInputRef={fileInputRef}
+                onSavePOD={handleSavePOD}
               />
               <VehicleDriverDetails shipment={viewShipment} detail={detail} loadUtil={loadUtil} />
               <ItemsBreakdown       shipment={viewShipment} detail={detail} totalQty={totalQty} totalWt={totalWt} />
@@ -384,8 +348,8 @@ export function ViewShipmentSheet({ open, onOpenChange, shipment, onStatusChange
             )}
             {s.status === "In Transit" && (
               <>
-                <Button variant="outline" className="border-border gap-2">
-                  <Phone className="w-4 h-4" />Contact Driver
+                <Button variant="outline" className="border-border gap-2 text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => handleStatusUpdate("Cancelled")}>
+                  <XCircle className="w-4 h-4" />Cancellation
                 </Button>
                 <Button className="gap-2 bg-[#1d4ed8] hover:bg-[#1e40af] text-white shadow-sm" onClick={() => handleStatusUpdate("Delivered")}>
                   <CheckCircle2 className="w-4 h-4" />Mark as Delivered

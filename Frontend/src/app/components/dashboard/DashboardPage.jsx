@@ -5,7 +5,6 @@ import { DashboardHeader } from "./DashboardHeader";
 import { DashboardStatsGrid } from "./DashboardStatsGrid";
 import { DashboardChart } from "./DashboardChart";
 import { PendingPODsPanel } from "./PendingPODsPanel";
-import { LiveShipmentsTable } from "./LiveShipmentsTable";
 import { StatDetailView } from "./StatDetailView";
 
 // We'll use our API base URL
@@ -86,9 +85,19 @@ export function DashboardPage() {
     originalDate: s.dispatchDate || s.createdAt
   });
 
-  // Filter the current shipments (in a real app, this would use the full data)
+  // Filter the current shipments dynamically based on selected card view
   let baseData = [];
   if (activeStatView === "Active Shipments") {
+    baseData = currentShipments.filter(s => s.status === "In Transit");
+  } else if (activeStatView === "Pending Dispatch") {
+    baseData = currentShipments.filter(s => s.status === "Pending");
+  } else if (activeStatView === "Cancelled Shipments") {
+    baseData = historicalShipments.filter(s => s.status === "Cancelled");
+  } else if (activeStatView === "Deliveries Today") {
+    baseData = historicalShipments.filter(s => s.status === "Delivered");
+  } else if (activeStatView === "Vehicles on Trip") {
+    baseData = currentShipments.filter(s => s.status === "In Transit");
+  } else if (activeStatView) {
     baseData = showHistory ? historicalShipments : currentShipments;
   }
   
@@ -145,9 +154,8 @@ export function DashboardPage() {
           <DashboardStatsGrid onStatClick={setActiveStatView} stats={stats} />
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
             <DashboardChart weeklyData={weeklyData} />
-            <PendingPODsPanel pendingPODs={pendingPODs} />
+            <PendingPODsPanel />
           </div>
-          <LiveShipmentsTable currentShipments={currentShipments} />
         </>
       )}
     </div>

@@ -85,6 +85,9 @@ const shipmentSchema = new mongoose.Schema(
     dispatchDate: { type: Date },
     deliveryDate: { type: Date },
     notes: { type: String, trim: true },
+    podReceiverName: { type: String, trim: true, default: "" },
+    podRemarks: { type: String, trim: true, default: "" },
+    podImages: [{ type: String }],
   },
   { timestamps: true }
 );

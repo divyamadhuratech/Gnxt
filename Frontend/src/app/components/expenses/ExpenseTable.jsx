@@ -115,6 +115,14 @@ export function ExpenseTable({
                 onSort={toggleSort}
               />
               <SortableHead
+                label="Total kg per shipment"
+                field="totalWeightKg"
+                current={sortField}
+                dir={sortDir}
+                onSort={toggleSort}
+                className="text-right"
+              />
+              <SortableHead
                 label="Expense Entries Count"
                 field="breakdown"
                 current={sortField}
@@ -135,7 +143,7 @@ export function ExpenseTable({
           <TableBody>
             {paginated.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-16">
+                <TableCell colSpan={8} className="text-center py-16">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <Wallet className="w-8 h-8 opacity-30" />
                     <p className="text-sm font-medium">No trip expenses recorded</p>
@@ -184,6 +192,9 @@ export function ExpenseTable({
                       <TableCell className="text-sm text-muted-foreground p-3">
                         {tripGroup.vehicleId}
                       </TableCell>
+                      <TableCell className="text-sm text-right font-medium p-3 tabular-nums text-[#334155]">
+                        {tripGroup.totalWeightKg ? `${tripGroup.totalWeightKg.toLocaleString()} kg` : "0 kg"}
+                      </TableCell>
                       <TableCell className="p-3">
                         <Badge variant="secondary" className="bg-[#eef2f6] text-[#334155] border-0 text-xs font-semibold px-2 py-0.5">
                           {breakdownCount} entries
@@ -215,7 +226,7 @@ export function ExpenseTable({
                     {/* Expandable Breakdown Child Row */}
                     {isExpanded && (
                       <TableRow className="bg-[#f8faff] hover:bg-[#f8faff]">
-                        <TableCell colSpan={7} className="p-4 pt-1 pb-4">
+                        <TableCell colSpan={8} className="p-4 pt-1 pb-4">
                           <div className="border border-[#1d4ed8]/10 rounded-xl bg-white shadow-sm overflow-hidden ml-11 mr-4">
                             <Table className="min-w-full">
                               <TableHeader className="bg-slate-50/80">

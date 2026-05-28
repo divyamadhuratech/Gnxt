@@ -6,7 +6,7 @@ const connectDB = async () => {
     console.log("MongoDB Connected");
   } catch (error) {
     console.error("DB Error:", error.message);
-    process.exit(1);
+    console.warn("⚠️ Database connection failed. Running server in static/offline mode.");
   }
 };
 

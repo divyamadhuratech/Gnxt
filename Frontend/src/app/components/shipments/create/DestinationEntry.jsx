@@ -17,9 +17,12 @@ export function DestinationEntry({
   onUpdate,
   lrNumber,
   usedPlantNumbers = [], // plant numbers already selected in other entries
+  onAddRelatedPlant,
+  onRemoveRelatedPlant,
 }) {
   const [plantNumbers, setPlantNumbers] = useState([]);
   const [invoices, setInvoices]         = useState([]);
+  const [relatedPlants, setRelatedPlants] = useState([]);
   const [loadingPlants, setLoadingPlants]   = useState(false);
   const [loadingInvoices, setLoadingInvoices] = useState(false);
 
@@ -33,18 +36,36 @@ export function DestinationEntry({
       .finally(() => setLoadingPlants(false));
   }, []);
 
-  // Fetch invoices when plant changes — also auto-fill customerName + location
+  // Fetch invoices when plant or additional plants change — also auto-fill customerName + location
   useEffect(() => {
-    if (!entry.plantReferenceNumber) { setInvoices([]); return; }
+    const plants = [entry.plantReferenceNumber, ...(entry.additionalPlants || [])].filter(Boolean);
+    if (plants.length === 0) { setInvoices([]); return; }
+
     setLoadingInvoices(true);
-    fetch(`${API_BASE_URL}/shipments/invoices-by-plant/${encodeURIComponent(entry.plantReferenceNumber)}`)
-      .then((r) => r.json())
-      .then((res) => {
-        const list = res.success ? res.data : [];
-        setInvoices(list);
-        // Auto-fill customerName and deliveryLocation from first invoice for this plant
-        if (list.length > 0) {
-          const first = list[0];
+
+    Promise.all(
+      plants.map((plant) =>
+        fetch(`${API_BASE_URL}/shipments/invoices-by-plant/${encodeURIComponent(plant)}`)
+          .then((r) => r.json())
+          .then((res) => (res.success ? res.data : []))
+          .catch(() => [])
+      )
+    )
+      .then((results) => {
+        const combined = results.flat();
+
+        // Sort by invoiceDate descending
+        combined.sort((a, b) => {
+          const dA = a.invoiceDate ? new Date(a.invoiceDate).getTime() : 0;
+          const dB = b.invoiceDate ? new Date(b.invoiceDate).getTime() : 0;
+          return dB - dA;
+        });
+
+        setInvoices(combined);
+
+        // Auto-fill customerName and deliveryLocation from first invoice
+        if (combined.length > 0) {
+          const first = combined[0];
           if (!entry.customerName && first.customerName) {
             onUpdate(entry.id, "customerName", first.customerName);
           }
@@ -55,6 +76,15 @@ export function DestinationEntry({
       })
       .catch(() => setInvoices([]))
       .finally(() => setLoadingInvoices(false));
+  }, [entry.plantReferenceNumber, entry.additionalPlants]);
+
+  // Fetch related plants when primary plant changes
+  useEffect(() => {
+    if (!entry.plantReferenceNumber) { setRelatedPlants([]); return; }
+    fetch(`${API_BASE_URL}/shipments/related-plants/${encodeURIComponent(entry.plantReferenceNumber)}`)
+      .then((r) => r.json())
+      .then((res) => setRelatedPlants(res.success ? res.data : []))
+      .catch(() => setRelatedPlants([]));
   }, [entry.plantReferenceNumber]);
 
   return (
@@ -125,6 +155,55 @@ export function DestinationEntry({
               </SelectContent>
             </Select>
           </div>
+
+          {/* Related Plants */}
+          {entry.plantReferenceNumber && relatedPlants.length > 0 && (
+            <div className="space-y-1.5 pt-1">
+              <Label className="text-[11px] text-muted-foreground font-semibold flex items-center gap-1">
+                🔗 Related Plants (same customer/location)
+              </Label>
+              <div className="flex flex-wrap gap-1.5">
+                {relatedPlants.map((plant) => {
+                  const isPrimary = entry.plantReferenceNumber === plant;
+                  const isAdditional = (entry.additionalPlants || []).includes(plant);
+                  const isUsedElsewhere = usedPlantNumbers.includes(plant) && !isAdditional && !isPrimary;
+
+                  return (
+                    <Badge
+                      key={plant}
+                      variant="outline"
+                      className={`px-2 py-0.5 text-xs flex items-center gap-1.5 transition-colors border select-none ${
+                        isPrimary || isAdditional
+                          ? "bg-indigo-50 border-indigo-200 text-indigo-700 font-medium cursor-pointer"
+                          : isUsedElsewhere
+                          ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed opacity-50"
+                          : "bg-white hover:bg-slate-50 border-slate-200 text-slate-700 cursor-pointer"
+                      }`}
+                      onClick={() => {
+                        if (isUsedElsewhere) return;
+                        if (isPrimary) return;
+                        if (isAdditional) {
+                          onRemoveRelatedPlant?.(plant);
+                        } else {
+                          onAddRelatedPlant?.(plant);
+                        }
+                      }}
+                    >
+                      <span>{plant}</span>
+                      {!isPrimary && !isUsedElsewhere && (
+                        <span className={`text-[9px] font-bold ${isAdditional ? "text-indigo-400 hover:text-red-500" : "text-emerald-500"}`}>
+                          {isAdditional ? "✕ Remove" : "+ Add"}
+                        </span>
+                      )}
+                      {isUsedElsewhere && (
+                        <span className="text-[9px] text-slate-400">(Selected elsewhere)</span>
+                      )}
+                    </Badge>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Associated Invoices — show only date + invoice number */}
           {entry.plantReferenceNumber && (

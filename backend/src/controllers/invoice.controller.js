@@ -1,7 +1,7 @@
 
 import XLSX from "xlsx";
 import Invoice from "../models/invoice.model.js";
-import { mapExcelRowToInvoice } from "../utils/mapInvoice.js";
+import { mapExcelRowToInvoice, validateSheetColumns, resolveHeaderKeys } from "../utils/mapInvoice.js";
 
 export const uploadInvoiceSheet = async (req, res) => {
   try {
@@ -9,10 +9,25 @@ export const uploadInvoiceSheet = async (req, res) => {
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(sheet);
 
+    // Validate that sheet has required columns
+    const sheetHeaders = Object.keys(rows[0] || {});
+    const missingColumns = validateSheetColumns(sheetHeaders);
+
+    if (missingColumns.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Sheet validation failed: Missing required column(s)",
+        validationError: true,
+        missingColumns,
+        headers: sheetHeaders,
+      });
+    }
+
+    const resolvedKeys = resolveHeaderKeys(sheetHeaders);
     const uniqueMap = new Map();
 
     for (const row of rows) {
-      const mapped = mapExcelRowToInvoice(row);
+      const mapped = mapExcelRowToInvoice(row, resolvedKeys);
 
       if (!mapped.plantReferenceNumber) continue;
 

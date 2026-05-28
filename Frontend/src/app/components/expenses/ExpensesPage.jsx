@@ -20,6 +20,7 @@ export function ExpensesPage() {
   const [filterVehicle, setFilterVehicle] = useState("all");
   const [filterDriver, setFilterDriver] = useState("all");
   const [filterExpenseType, setFilterExpenseType] = useState("all");
+  const [filterDealer, setFilterDealer] = useState("all");
   const [filterDate, setFilterDate] = useState();
   const [dateOpen, setDateOpen] = useState(false);
 
@@ -79,6 +80,36 @@ export function ExpensesPage() {
     return [...new Set(names)];
   }, [expenses]);
 
+  // Derived dealer options from active shipments list
+  const dealerOptions = useMemo(() => {
+    const allDealers = [];
+    shipments.forEach((s) => {
+      (s.destinations || []).forEach((d) => {
+        if (d.customerName) allDealers.push(d.customerName.trim());
+      });
+    });
+    return [...new Set(allDealers)].sort();
+  }, [shipments]);
+
+  // Map shipmentId to its total weight
+  const shipmentWeightMap = useMemo(() => {
+    const map = new Map();
+    shipments.forEach((s) => {
+      map.set(s.shipmentId, s.totalWeightKg || 0);
+    });
+    return map;
+  }, [shipments]);
+
+  // Map shipmentId to associated customer names (dealers)
+  const shipmentCustomerMap = useMemo(() => {
+    const map = new Map();
+    shipments.forEach((s) => {
+      const customers = [...new Set((s.destinations || []).map((d) => d.customerName).filter(Boolean))];
+      map.set(s.shipmentId, customers.join(", ") || "N/A");
+    });
+    return map;
+  }, [shipments]);
+
   // Filtered + sorted + grouped by Trip ID
   const processedData = useMemo(() => {
     let data = [...expenses];
@@ -88,6 +119,9 @@ export function ExpensesPage() {
     data.forEach((e) => {
       const key = e.tripId || e.lrNumber || `manual-${e.driverName}-${e.vehicleId}`;
       if (!groupedMap.has(key)) {
+        const totalWeightKg = shipmentWeightMap.get(e.tripId) || 0;
+        const customerName = shipmentCustomerMap.get(e.tripId) || "N/A";
+
         groupedMap.set(key, {
           tripId: e.tripId || "No Trip ID",
           lrNumber: e.lrNumber || "N/A",
@@ -97,6 +131,8 @@ export function ExpensesPage() {
           status: e.status || "Pending",
           paymentMode: e.paymentMode || "Cash",
           amount: 0,
+          totalWeightKg,
+          customerName,
           breakdown: []
         });
       }
@@ -119,6 +155,7 @@ export function ExpensesPage() {
           g.tripId.toLowerCase().includes(q) ||
           g.driverName.toLowerCase().includes(q) ||
           g.vehicleId.toLowerCase().includes(q) ||
+          g.customerName.toLowerCase().includes(q) ||
           g.breakdown.some((e) => (e.lrNumber || "").toLowerCase().includes(q))
       );
     }
@@ -132,6 +169,12 @@ export function ExpensesPage() {
     }
     if (filterDriver !== "all") {
       groupedData = groupedData.filter((g) => g.driverName === filterDriver);
+    }
+    if (filterDealer !== "all") {
+      groupedData = groupedData.filter((g) => {
+        const parts = g.customerName.split(",").map(p => p.trim());
+        return parts.includes(filterDealer);
+      });
     }
     if (filterExpenseType !== "all") {
       groupedData = groupedData.filter((g) =>
@@ -168,11 +211,14 @@ export function ExpensesPage() {
     filterShipment,
     filterVehicle,
     filterDriver,
+    filterDealer,
     filterExpenseType,
     filterDate,
     sortField,
     sortDir,
     expenses,
+    shipmentWeightMap,
+    shipmentCustomerMap,
   ]);
 
   const totalPages = Math.max(1, Math.ceil(processedData.length / ITEMS_PER_PAGE));
@@ -213,6 +259,7 @@ export function ExpensesPage() {
     setFilterShipment("all");
     setFilterVehicle("all");
     setFilterDriver("all");
+    setFilterDealer("all");
     setFilterExpenseType("all");
     setFilterDate(undefined);
     setCurrentPage(1);
@@ -272,11 +319,48 @@ export function ExpensesPage() {
     }
   };
 
+  const handleExport = () => {
+    const headers = [
+      "Trip / Shipment ID",
+      "Driver Name",
+      "Vehicle ID",
+      "Total kg per shipment",
+      "Total Expense Amount (INR)",
+      "Date",
+      "Dealer / Customer"
+    ];
+
+    const rows = processedData.map((g) => [
+      `"${(g.tripId || "").replace(/"/g, '""')}"`,
+      `"${(g.driverName || "").replace(/"/g, '""')}"`,
+      `"${(g.vehicleId || "").replace(/"/g, '""')}"`,
+      `"${g.totalWeightKg || 0}"`,
+      `"${g.amount || 0}"`,
+      `"${g.date ? new Date(g.date).toLocaleDateString("en-IN") : "N/A"}"`,
+      `"${(g.customerName || "").replace(/"/g, '""')}"`
+    ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((r) => r.join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `GNXT_Expenses_Export_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const hasActiveFilters =
     searchQuery ||
     filterShipment !== "all" ||
     filterVehicle !== "all" ||
     filterDriver !== "all" ||
+    filterDealer !== "all" ||
     filterExpenseType !== "all" ||
     filterDate;
 
@@ -287,6 +371,7 @@ export function ExpensesPage() {
           setAddModalTripId(null);
           setAddModalOpen(true);
         }}
+        onExport={handleExport}
       />
 
       <ExpenseFiltersBar
@@ -303,11 +388,14 @@ export function ExpensesPage() {
         setFilterVehicle={setFilterVehicle}
         filterDriver={filterDriver}
         setFilterDriver={setFilterDriver}
+        filterDealer={filterDealer}
+        setFilterDealer={setFilterDealer}
         filterExpenseType={filterExpenseType}
         setFilterExpenseType={setFilterExpenseType}
         shipmentIds={shipmentIds}
         vehicleIds={vehicleIds}
         driverNames={driverNames}
+        dealerOptions={dealerOptions}
         onClear={clearFilters}
         hasActiveFilters={hasActiveFilters}
       />

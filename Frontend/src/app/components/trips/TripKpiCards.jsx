@@ -4,9 +4,9 @@ function KpiCard({ icon, label, value, sub, highlight }) {
   const highlightBorder = highlight
     ? highlight === "emerald"
       ? "border-emerald-200"
-      : highlight === "amber"
-        ? "border-amber-200"
-        : "border-red-200"
+      : highlight === "blue"
+        ? "border-blue-200"
+        : "border-slate-200"
     : "border-border";
 
   return (
@@ -31,29 +31,29 @@ export function TripKpiCards({ statusCounts }) {
       <KpiCard
         icon={<Truck className="w-4 h-4 text-[#1d4ed8]" />}
         label="Total Vehicles"
-        value={`${statusCounts.all}`}
+        value={`${statusCounts.all || 0}`}
         sub="Across all trips"
       />
       <KpiCard
         icon={<Activity className="w-4 h-4 text-emerald-500" />}
-        label="Moving"
-        value={`${statusCounts.Moving}`}
-        sub="Currently on road"
+        label="In Transit"
+        value={`${statusCounts["In Transit"] || 0}`}
+        sub="Dispatched & on trip"
         highlight="emerald"
       />
       <KpiCard
-        icon={<Clock className="w-4 h-4 text-amber-500" />}
-        label="Idle"
-        value={`${statusCounts.Idle}`}
-        sub="Awaiting dispatch"
-        highlight="amber"
+        icon={<Clock className="w-4 h-4 text-blue-500" />}
+        label="Waiting for Dispatch"
+        value={`${statusCounts["Waiting for Dispatch"] || 0}`}
+        sub="Shipment planned & assigned"
+        highlight="blue"
       />
       <KpiCard
-        icon={<MapPin className="w-4 h-4 text-red-500" />}
-        label="Stopped"
-        value={`${statusCounts.Stopped}`}
-        sub="Delivered / halted"
-        highlight="red"
+        icon={<MapPin className="w-4 h-4 text-slate-500" />}
+        label="Idle Fleet"
+        value={`${statusCounts.Idle || 0}`}
+        sub="Available for assignment"
+        highlight="slate"
       />
     </div>
   );

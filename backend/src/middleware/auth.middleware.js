@@ -14,6 +14,12 @@ export const authenticate = async (req, res, next) => {
     const token = authHeader.split(" ")[1];
     const decoded = jwt.verify(token, JWT_SECRET);
 
+    // Bypass database lookup if static admin user ID is decoded
+    if (decoded.id === "000000000000000000000001") {
+      req.user = { id: "000000000000000000000001", username: "admin", role: "Super Admin" };
+      return next();
+    }
+
     const user = await User.findById(decoded.id).select("-password");
     if (!user || user.status === "Inactive") {
       return res.status(401).json({ success: false, message: "Unauthorized" });

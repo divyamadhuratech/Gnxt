@@ -28,11 +28,14 @@ export function ExpenseFiltersBar({
   setFilterVehicle,
   filterDriver,
   setFilterDriver,
+  filterDealer,
+  setFilterDealer,
   filterExpenseType,
   setFilterExpenseType,
   shipmentIds,
   vehicleIds,
   driverNames,
+  dealerOptions = [],
   onClear,
   hasActiveFilters,
 }) {
@@ -140,6 +143,27 @@ export function ExpenseFiltersBar({
           <SelectContent>
             <SelectItem value="all">All Drivers</SelectItem>
             {driverNames.map((d) => (
+              <SelectItem key={d} value={d}>
+                {d}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Dealer / Customer */}
+        <Select
+          value={filterDealer}
+          onValueChange={(v) => {
+            setFilterDealer(v);
+            setCurrentPage(1);
+          }}
+        >
+          <SelectTrigger className="h-9 w-[150px] text-xs bg-white border-border">
+            <SelectValue placeholder="All Dealers" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Dealers</SelectItem>
+            {dealerOptions.map((d) => (
               <SelectItem key={d} value={d}>
                 {d}
               </SelectItem>

@@ -56,15 +56,22 @@ export function TripTrackingPage() {
       // Find GPS location for this vehicle
       const gps = gpsLocations.find(g => g.vehicleNo === vehicle.vehicleNo);
 
-      const isDispatched = vehicle.status === "In Transit";
-      const statusMap = {
-        "In Transit": gps?.speed > 2 ? "Moving" : "Stopped",
-        "Idle": "Idle",
-        "Maintenance": "Stopped",
-        "Breakdown": "Stopped"
-      };
-
-      const finalStatus = statusMap[vehicle.status] || "Idle";
+      const isDispatched = activeShipment?.status === "In Transit";
+      
+      let finalStatus = "Idle";
+      if (activeShipment) {
+        if (activeShipment.status === "Pending") {
+          finalStatus = "Waiting for Dispatch";
+        } else if (activeShipment.status === "In Transit") {
+          finalStatus = "In Transit";
+        } else {
+          finalStatus = activeShipment.status;
+        }
+      } else if (vehicle.status === "Assigned") {
+        finalStatus = "Waiting for Dispatch";
+      } else {
+        finalStatus = vehicle.status || "Idle";
+      }
 
       const vehicleType = vehicle.ownership === "Company" ? "Own" : "Rented";
 
@@ -117,9 +124,9 @@ export function TripTrackingPage() {
 
   const statusCounts = {
     all: combinedVehicles.length,
-    Moving: combinedVehicles.filter((v) => v.status === "Moving").length,
+    "In Transit": combinedVehicles.filter((v) => v.status === "In Transit").length,
+    "Waiting for Dispatch": combinedVehicles.filter((v) => v.status === "Waiting for Dispatch").length,
     Idle: combinedVehicles.filter((v) => v.status === "Idle").length,
-    Stopped: combinedVehicles.filter((v) => v.status === "Stopped").length,
   };
 
   return (
@@ -144,6 +151,7 @@ export function TripTrackingPage() {
               setShowNotDispatched={setShowNotDispatched}
               filteredVehicles={filteredVehicles}
               statusCounts={statusCounts}
+              vehicles={combinedVehicles}
             />
             <TripTable
               filteredVehicles={filteredVehicles}

@@ -42,7 +42,8 @@ export const createShipment = async (req, res) => {
 
       // Fallback: look up any invoice for this plant to get customerName + location
       if ((!customerName || !deliveryLocation) && d.plantReferenceNumber) {
-        const inv = await Invoice.findOne({ plantReferenceNumber: d.plantReferenceNumber })
+        const plantNumbers = d.plantReferenceNumber.split(",").map(p => p.trim()).filter(Boolean);
+        const inv = await Invoice.findOne({ plantReferenceNumber: { $in: plantNumbers } })
           .select("customerName location").lean();
         if (inv) {
           customerName     = customerName     || inv.customerName || "";
@@ -76,8 +77,8 @@ export const createShipment = async (req, res) => {
 
     await shipment.save();
 
-    // Mark vehicle as On Trip
-    await Vehicle.findByIdAndUpdate(vehicleId, { availability: "On Trip", status: "In Transit" });
+    // Mark vehicle as Assigned
+    await Vehicle.findByIdAndUpdate(vehicleId, { availability: "Assigned", status: "Assigned" });
     // Mark driver as Assigned
     await Driver.findByIdAndUpdate(driverId, { tripStatus: "Assigned", assignedVehicle: vehicle.vehicleNo });
 
@@ -133,7 +134,8 @@ export const getShipments = async (req, res) => {
 
         // Fallback: look up by plantReferenceNumber
         if ((!customerName || !deliveryLocation) && dest.plantReferenceNumber) {
-          const inv = await Invoice.findOne({ plantReferenceNumber: dest.plantReferenceNumber })
+          const plantNumbers = dest.plantReferenceNumber.split(",").map(p => p.trim()).filter(Boolean);
+          const inv = await Invoice.findOne({ plantReferenceNumber: { $in: plantNumbers } })
             .select("customerName location").lean();
           customerName     = customerName     || inv?.customerName || "";
           deliveryLocation = deliveryLocation || inv?.location     || "";
@@ -163,10 +165,35 @@ export const getShipmentById = async (req, res) => {
     const shipment = await Shipment.findById(req.params.id)
       .populate("vehicleId", "vehicleNo type model capacityKg")
       .populate("driverId", "name phone licenseNumber driverType")
-      .populate("destinations.invoiceIds", "invoiceNumber invoiceDate plantReferenceNumber")
+      .populate("destinations.invoiceIds", "invoiceNumber invoiceDate plantReferenceNumber customerName location")
       .lean();
 
     if (!shipment) return res.status(404).json({ success: false, message: "Shipment not found" });
+
+    // Backfill customerName + deliveryLocation for destinations if missing
+    const enrichedDestinations = await Promise.all((shipment.destinations ?? []).map(async (dest) => {
+      let customerName     = dest.customerName || "";
+      let deliveryLocation = dest.deliveryLocation || "";
+
+      // Try populated invoices first
+      const popInv = (dest.invoiceIds ?? []).find((inv) => typeof inv === "object");
+      customerName     = customerName     || popInv?.customerName || "";
+      deliveryLocation = deliveryLocation || popInv?.location     || "";
+
+      // Fallback lookup
+      if ((!customerName || !deliveryLocation) && dest.plantReferenceNumber) {
+        const plantNumbers = dest.plantReferenceNumber.split(",").map(p => p.trim()).filter(Boolean);
+        const inv = await Invoice.findOne({ plantReferenceNumber: { $in: plantNumbers } })
+          .select("customerName location").lean();
+        customerName     = customerName     || inv?.customerName || "";
+        deliveryLocation = deliveryLocation || inv?.location     || "";
+      }
+
+      return { ...dest, customerName, deliveryLocation };
+    }));
+
+    shipment.destinations = enrichedDestinations;
+
     res.status(200).json({ success: true, data: shipment });
   } catch (err) {
     res.status(500).json({ success: false, message: "Error fetching shipment", error: err.message });
@@ -178,23 +205,39 @@ export const getShipmentById = async (req, res) => {
 ───────────────────────────────────────────────── */
 export const updateShipmentStatus = async (req, res) => {
   try {
-    const { status } = req.body;
-    const allowed = ["Pending", "In Transit", "Delivered", "Cancelled"];
+    const { status, podReceiverName, podRemarks, podImages } = req.body;
+    const allowed = ["Pending", "In Transit", "Delivered", "Returned", "Cancelled"];
     if (!allowed.includes(status)) {
       return res.status(400).json({ success: false, message: "Invalid status" });
     }
 
+    const updateFields = {
+      status,
+      ...(status === "Delivered" ? { deliveryDate: new Date() } : {}),
+      ...(status === "In Transit" ? { dispatchDate: new Date() } : {}),
+      ...(status === "Returned" ? { returnedDate: new Date() } : {}),
+      ...(podReceiverName !== undefined ? { podReceiverName } : {}),
+      ...(podRemarks !== undefined ? { podRemarks } : {}),
+      ...(podImages !== undefined ? { podImages } : {}),
+    };
+
     const shipment = await Shipment.findByIdAndUpdate(
       req.params.id,
-      { status, ...(status === "Delivered" ? { deliveryDate: new Date() } : {}), ...(status === "In Transit" ? { dispatchDate: new Date() } : {}) },
+      updateFields,
       { new: true }
     );
     if (!shipment) return res.status(404).json({ success: false, message: "Shipment not found" });
 
-    // Free vehicle & driver when delivered or cancelled
-    if (status === "Delivered" || status === "Cancelled") {
+    // Free vehicle & driver when returned or cancelled
+    if (status === "Returned" || status === "Cancelled") {
       await Vehicle.findByIdAndUpdate(shipment.vehicleId, { availability: "Available", status: "Idle" });
       await Driver.findByIdAndUpdate(shipment.driverId, { tripStatus: "Idle", assignedVehicle: null });
+    }
+
+    // Set vehicle & driver to In Transit when dispatched
+    if (status === "In Transit") {
+      await Vehicle.findByIdAndUpdate(shipment.vehicleId, { availability: "On Trip", status: "In Transit" });
+      await Driver.findByIdAndUpdate(shipment.driverId, { tripStatus: "In Transit", assignedVehicle: shipment.vehicleNumber });
     }
 
     res.status(200).json({ success: true, message: "Status updated", data: shipment });
@@ -272,7 +315,8 @@ export const updateShipment = async (req, res) => {
 
         // Fallback: look up by plantReferenceNumber
         if ((!customerName || !deliveryLocation) && d.plantReferenceNumber) {
-          const inv = await Invoice.findOne({ plantReferenceNumber: d.plantReferenceNumber })
+          const plantNumbers = d.plantReferenceNumber.split(",").map(p => p.trim()).filter(Boolean);
+          const inv = await Invoice.findOne({ plantReferenceNumber: { $in: plantNumbers } })
             .select("customerName location").lean();
           if (inv) {
             customerName     = customerName     || inv.customerName || "";
@@ -398,5 +442,36 @@ export const getShipmentsByDriver = async (req, res) => {
   } catch (err) {
     console.error("Get shipments by driver error:", err);
     res.status(500).json({ success: false, message: "Error fetching driver shipments", error: err.message });
+  }
+};
+
+/* ─────────────────────────────────────────────────
+   GET /api/shipments/related-plants/:plantRef
+   Returns distinct plant numbers sharing the same customerName and location from invoices
+───────────────────────────────────────────────── */
+export const getRelatedPlants = async (req, res) => {
+  try {
+    const { plantRef } = req.params;
+
+    // Find the customer and location of the current plantRef from invoices
+    const refInvoice = await Invoice.findOne({ plantReferenceNumber: plantRef })
+      .select("customerName location")
+      .lean();
+
+    if (!refInvoice) {
+      return res.status(200).json({ success: true, data: [] });
+    }
+
+    // Find all OTHER plant numbers that share the same customerName and location and are Pending
+    const related = await Invoice.distinct("plantReferenceNumber", {
+      plantReferenceNumber: { $ne: plantRef },
+      customerName: refInvoice.customerName,
+      location: refInvoice.location,
+      status: "Pending"
+    });
+
+    res.status(200).json({ success: true, data: related.sort() });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Error fetching related plants", error: err.message });
   }
 };

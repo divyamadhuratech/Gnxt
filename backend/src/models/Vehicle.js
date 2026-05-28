@@ -15,29 +15,28 @@ const vehicleSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      required: true,
-      enum: ["Truck", "Mini Truck", "Trailer", "Container", "Tanker"],
+      required: false,
     },
     model: {
       type: String,
-      required: true,
+      required: false,
       trim: true,
     },
     capacityKg: {
       type: Number,
-      required: true,
+      required: false,
       min: 0,
     },
-   
+
     status: {
       type: String,
       default: "Idle",
       enum: ["Active", "In Transit", "Idle", "Maintenance"],
     },
-   
+
     insuranceExpiry: {
       type: Date,
-      required: true,
+      required: false,
     },
     availability: {
       type: String,

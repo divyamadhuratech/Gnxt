@@ -10,7 +10,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
-import { tripVehicles } from "./data/tripData";
 
 export function TripFiltersBar({
   searchQuery,
@@ -23,6 +22,7 @@ export function TripFiltersBar({
   setShowNotDispatched,
   filteredVehicles,
   statusCounts,
+  vehicles = [],
 }) {
   return (
     <div className="flex items-center gap-3 flex-wrap">
@@ -37,7 +37,7 @@ export function TripFiltersBar({
       </div>
 
       <Select value={statusFilter} onValueChange={setStatusFilter}>
-        <SelectTrigger className="w-[170px] h-9 bg-white border-border">
+        <SelectTrigger className="w-[190px] h-9 bg-white border-border">
           <div className="flex items-center gap-2">
             <Filter className="w-3.5 h-3.5 text-muted-foreground" />
             <SelectValue placeholder="All Statuses" />
@@ -45,9 +45,9 @@ export function TripFiltersBar({
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">All Statuses ({statusCounts.all})</SelectItem>
-          <SelectItem value="Moving">Moving ({statusCounts.Moving})</SelectItem>
-          <SelectItem value="Idle">Idle ({statusCounts.Idle})</SelectItem>
-          <SelectItem value="Stopped">Stopped ({statusCounts.Stopped})</SelectItem>
+          <SelectItem value="In Transit">In Transit ({statusCounts["In Transit"] || 0})</SelectItem>
+          <SelectItem value="Waiting for Dispatch">Waiting for Dispatch ({statusCounts["Waiting for Dispatch"] || 0})</SelectItem>
+          <SelectItem value="Idle">Idle Fleet ({statusCounts.Idle || 0})</SelectItem>
         </SelectContent>
       </Select>
 
@@ -84,12 +84,12 @@ export function TripFiltersBar({
               variant="outline"
               className="text-[10px] px-1.5 py-0 border-amber-200 text-amber-700 bg-amber-50"
             >
-              {tripVehicles.filter((v) => !v.dispatched).length} pending
+              {vehicles.filter((v) => !v.dispatched).length} pending
             </Badge>
           )}
         </div>
         <span className="text-xs text-muted-foreground">
-          Showing {filteredVehicles.length} of {tripVehicles.length}
+          Showing {filteredVehicles.length} of {vehicles.length}
         </span>
       </div>
     </div>

@@ -197,8 +197,8 @@ export function StatDetailView({
                   </>
                 )}
 
-                {/* 4. Cancelled Dispatch */}
-                {activeStatView === "Cancelled Dispatch" && (
+                {/* 4. Cancelled Shipments */}
+                {activeStatView === "Cancelled Shipments" && (
                   <>
                     <TableHead className="pl-5">Invoice No</TableHead>
                     <TableHead>Date</TableHead>

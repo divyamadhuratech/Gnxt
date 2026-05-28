@@ -11,13 +11,6 @@ export function QuickActionsPanel({ data }) {
       <div className="bg-white border border-border rounded-xl p-5 space-y-3">
         <h3 className="text-xs text-muted-foreground uppercase tracking-wider">Quick Actions</h3>
         <div className="space-y-2">
-          <Button
-            variant="outline"
-            className="w-full justify-start gap-2.5 border-border h-10"
-          >
-            <Phone className="w-4 h-4 text-emerald-500" />
-            Call Driver
-          </Button>
 
           <Button
             variant="outline"
@@ -27,13 +20,6 @@ export function QuickActionsPanel({ data }) {
             <Eye className="w-4 h-4 text-violet-500" />
             View Shipment Details
           </Button>
-
-          {data.status === "Moving" && (
-            <Button className="w-full justify-start gap-2.5 bg-[#1d4ed8] hover:bg-[#1e40af] text-white h-10">
-              <CheckCircle2 className="w-4 h-4" />
-              Mark as Delivered
-            </Button>
-          )}
         </div>
       </div>
 

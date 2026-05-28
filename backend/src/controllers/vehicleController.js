@@ -28,9 +28,9 @@ export const createVehicle = async (req, res) => {
   try {
     const { vehicleNo, type, model, capacityKg, insuranceExpiry, ownership, gpsImei } = req.body;
 
-    // Validation
-    if (!vehicleNo || !type || !model || !capacityKg || !insuranceExpiry || !ownership) {
-      return res.status(400).json({ message: "All fields are required" });
+    // Validation (only vehicleNo and ownership are required)
+    if (!vehicleNo || !ownership) {
+      return res.status(400).json({ message: "Vehicle Number and Ownership are required" });
     }
 
     // Check if vehicle number already exists
@@ -40,32 +40,31 @@ export const createVehicle = async (req, res) => {
     }
 
     // Find latest vehicle
-const lastVehicle = await Vehicle.findOne().sort({ createdAt: -1 });
+    const lastVehicle = await Vehicle.findOne().sort({ createdAt: -1 });
 
-let nextNumber = 1;
+    let nextNumber = 1;
 
-if (lastVehicle && lastVehicle.vehicleId) {
-  const lastNumber = parseInt(
-    lastVehicle.vehicleId.split("-")[1]
-  );
+    if (lastVehicle && lastVehicle.vehicleId) {
+      const lastNumber = parseInt(
+        lastVehicle.vehicleId.split("-")[1]
+      );
 
-  nextNumber = lastNumber + 1;
-}
+      nextNumber = lastNumber + 1;
+    }
 
-// Generate VEH-001
-const vehicleId = `VEH-${String(nextNumber).padStart(3, "0")}`;
+    // Generate VEH-001
+    const vehicleId = `VEH-${String(nextNumber).padStart(3, "0")}`;
 
-console.log(`${vehicleId} vechicle id `);
-
+    console.log(`${vehicleId} vechicle id `);
 
     // Create new vehicle with default values
     const newVehicle = new Vehicle({
       vehicleId,
       vehicleNo,
-      type,
-      model,
-      capacityKg: Number(capacityKg),
-      insuranceExpiry: new Date(insuranceExpiry),
+      type: type || "",
+      model: model || "",
+      capacityKg: capacityKg ? Number(capacityKg) : undefined,
+      insuranceExpiry: insuranceExpiry ? new Date(insuranceExpiry) : undefined,
       ownership,
       gpsImei: gpsImei || "",
       status: "Idle",
@@ -80,41 +79,6 @@ console.log(`${vehicleId} vechicle id `);
 };
 
 // Update vehicle (full update)
-// export const updateVehicle = async (req, res) => {
-//   try {
-//     const { vehicleNo, type, model, capacityKg, insuranceExpiry, ownership, status, availability } = req.body;
-
-//     // Find vehicle
-//     const vehicle = await Vehicle.findById(req.params.id);
-//     if (!vehicle) {
-//       return res.status(404).json({ message: "Vehicle not found" });
-//     }
-
-//     // Check if new vehicle number already exists (if being changed)
-//     if (vehicleNo && vehicleNo !== vehicle.vehicleNo) {
-//       const existingVehicle = await Vehicle.findOne({ vehicleNo });
-//       if (existingVehicle) {
-//         return res.status(409).json({ message: "Vehicle number already exists" });
-//       }
-//     }
-
-//     // Update fields
-//     if (vehicleNo) vehicle.vehicleNo = vehicleNo;
-//     if (type) vehicle.type = type;
-//     if (model) vehicle.model = model;
-//     if (capacityKg) vehicle.capacityKg = Number(capacityKg);
-//     if (insuranceExpiry) vehicle.insuranceExpiry = new Date(insuranceExpiry);
-//     if (ownership) vehicle.ownership = ownership;
-//     if (status) vehicle.status = status;
-//     if (availability) vehicle.availability = availability;
-
-//     const updatedVehicle = await vehicle.save();
-//     res.status(200).json(updatedVehicle);
-//   } catch (error) {
-//     res.status(500).json({ message: "Error updating vehicle", error: error.message });
-//   }
-// };
-
 export const updateVehicle = async (req, res) => {
   try {
     const { vehicleNo, type, model, capacityKg, insuranceExpiry, ownership, status, availability, gpsImei } = req.body;
@@ -135,14 +99,18 @@ export const updateVehicle = async (req, res) => {
 
     // Update fields
     if (vehicleNo) vehicle.vehicleNo = vehicleNo;
-    if (type) vehicle.type = type;
-    if (model) vehicle.model = model;
-    if (capacityKg) vehicle.capacityKg = Number(capacityKg);
-    if (insuranceExpiry) vehicle.insuranceExpiry = new Date(insuranceExpiry);
+    if (type !== undefined) vehicle.type = type || "";
+    if (model !== undefined) vehicle.model = model || "";
+    if (capacityKg !== undefined) {
+      vehicle.capacityKg = capacityKg ? Number(capacityKg) : undefined;
+    }
+    if (insuranceExpiry !== undefined) {
+      vehicle.insuranceExpiry = insuranceExpiry ? new Date(insuranceExpiry) : undefined;
+    }
     if (ownership) vehicle.ownership = ownership;
     if (status) {
       vehicle.status = status;
-      
+
       // ✅ ADD THIS - Auto-set availability based on status
       if (status === "Maintenance" || status === "Breakdown") {
         vehicle.availability = "Unavailable";
@@ -151,7 +119,7 @@ export const updateVehicle = async (req, res) => {
       }
     }
     if (availability && !status) vehicle.availability = availability; // Allow manual override if no status change
-    if (gpsImei !== undefined) vehicle.gpsImei = gpsImei;
+    if (gpsImei !== undefined) vehicle.gpsImei = gpsImei || "";
 
     const updatedVehicle = await vehicle.save();
     res.status(200).json(updatedVehicle);
@@ -192,7 +160,7 @@ export const updateVehicleStatus = async (req, res) => {
     }
 
     const updateData = { status };
-    
+
     if (status === "Maintenance" || status === "Breakdown") {
       updateData.availability = "Unavailable";
     } else if (status === "Idle") {

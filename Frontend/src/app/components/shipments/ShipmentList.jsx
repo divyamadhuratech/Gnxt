@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useLocation } from "react-router";
 import { TooltipProvider } from "../ui/tooltip";
 import ShipmentHeader from "./ShipmentHeader";
 import ShipmentFiltersBar from "./ShipmentFiltersBar";
@@ -7,11 +8,22 @@ import { CreateShipmentSheet } from "./CreateShipmentSheet";
 import { ViewShipmentSheet } from "./ViewShipmentSheet";
 import { useShipments } from "./hooks/useShipments";
 import { getPODConfig, isWithinDateRange } from "./utils/shipmentStyles";
+import { HistoryShipmentSheet } from "./HistoryShipmentSheet";
 
 export function ShipmentList() {
   const { shipmentData, setShipmentData, loading, fetchShipments } = useShipments();
+  const location = useLocation();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [viewSheetOpen, setViewSheetOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+
+  useEffect(() => {
+    if (location.state?.openCreate) {
+      setSheetOpen(true);
+      window.history.replaceState({}, document.title);
+    }
+  }, [location]);
+
   const [selectedShipment, setSelectedShipment] = useState(null);
   const [editShipment, setEditShipment] = useState(null); // shipment to edit
   const [searchQuery, setSearchQuery] = useState("");
@@ -28,8 +40,20 @@ export function ShipmentList() {
     setTotal(shipmentData.length);
   }, [shipmentData]);
 
-  const filteredShipments = useMemo(() => {
+  const activeShipmentsOnly = useMemo(() => {
     const list = Array.isArray(shipmentData) ? shipmentData : [];
+    return list.filter(s => s.status !== "Delivered" && s.status !== "Cancelled");
+  }, [shipmentData]);
+
+  const historyShipmentsOnly = useMemo(() => {
+    const list = Array.isArray(shipmentData) ? shipmentData : [];
+    return list.filter(s => s.status === "Delivered" || s.status === "Cancelled");
+  }, [shipmentData]);
+
+  const filteredShipments = useMemo(() => {
+    const list = (statusFilter === "Delivered" || statusFilter === "Cancelled" || statusFilter === "Returned")
+      ? (Array.isArray(shipmentData) ? shipmentData : [])
+      : activeShipmentsOnly;
     return list.filter((s) => {
       const matchesSearch =
         searchQuery === "" ||
@@ -44,16 +68,24 @@ export function ShipmentList() {
 
       return matchesSearch && matchesStatus && matchesDate;
     });
-  }, [shipmentData, searchQuery, statusFilter, dateFilter]);
+  }, [activeShipmentsOnly, shipmentData, searchQuery, statusFilter, dateFilter]);
 
   const statusCounts = useMemo(() => {
     const list = Array.isArray(shipmentData) ? shipmentData : [];
-    const counts = { all: list.length, Pending: 0, "In Transit": 0, Delivered: 0, Cancelled: 0, filtered: filteredShipments.length };
+    const counts = {
+      all: activeShipmentsOnly.length,
+      Pending: 0,
+      "In Transit": 0,
+      Delivered: 0,
+      Returned: 0,
+      Cancelled: 0,
+      filtered: filteredShipments.length,
+    };
     list.forEach((s) => {
       if (counts[s.status] !== undefined) counts[s.status]++;
     });
     return counts;
-  }, [shipmentData, filteredShipments.length]);
+  }, [shipmentData, activeShipmentsOnly, filteredShipments.length]);
 
   const API_BASE_URL = import.meta.env?.VITE_API_URL || "http://localhost:5000/api";
 
@@ -112,7 +144,11 @@ export function ShipmentList() {
   return (
     <TooltipProvider>
       <div className="h-full flex flex-col p-6 gap-6">
-        <ShipmentHeader total={total} onCreateClick={() => setSheetOpen(true)} />
+        <ShipmentHeader
+          total={activeShipmentsOnly.length}
+          onCreateClick={() => setSheetOpen(true)}
+          onHistoryClick={() => setHistoryOpen(true)}
+        />
 
         <ShipmentFiltersBar
           searchQuery={searchQuery}
@@ -122,7 +158,7 @@ export function ShipmentList() {
           dateFilter={dateFilter}
           onDateFilterChange={setDateFilter}
           statusCounts={{ ...statusCounts }}
-          totalShipments={shipmentData.length}
+          totalShipments={activeShipmentsOnly.length}
         />
 
         <div className="bg-white rounded-lg border border-border shadow-[0_1px_3px_rgba(0,0,0,0.04)] flex-1 overflow-hidden flex flex-col">
@@ -155,6 +191,12 @@ export function ShipmentList() {
             );
           }}
           onEdit={(s) => { setEditShipment(s); setSheetOpen(true); }}
+        />
+        <HistoryShipmentSheet
+          open={historyOpen}
+          onOpenChange={setHistoryOpen}
+          historyShipments={historyShipmentsOnly}
+          onDeleted={() => fetchShipments()}
         />
       </div>
     </TooltipProvider>

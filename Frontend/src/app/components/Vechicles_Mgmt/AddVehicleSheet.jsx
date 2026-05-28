@@ -27,10 +27,6 @@ export default function AddVehicleSheet({
 }) {
   const isFormValid =
     newVehicle.vehicleNo &&
-    newVehicle.type &&
-    newVehicle.model &&
-    newVehicle.capacityKg &&
-    newVehicle.insuranceExpiry &&
     newVehicle.ownership;
 
   const handleInputChange = (field, value) => {
@@ -92,48 +88,15 @@ export default function AddVehicleSheet({
                   htmlFor="type"
                   className="text-xs text-muted-foreground uppercase tracking-wider"
                 >
-                  Vehicle Type <span className="text-red-500">*</span>
+                  Vehicle Type <span className="text-muted-foreground normal-case tracking-normal">(optional)</span>
                 </Label>
-                <Select
-                  value={newVehicle.type}
-                  onValueChange={(value) => handleInputChange("type", value)}
-                >
-                  <SelectTrigger className="w-full h-10 bg-[#f8f9fb] border-border">
-                    <SelectValue placeholder="Select type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Truck">
-                      <span className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-blue-500" />
-                        Truck
-                      </span>
-                    </SelectItem>
-                    <SelectItem value="Mini Truck">
-                      <span className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-teal-500" />
-                        Mini Truck
-                      </span>
-                    </SelectItem>
-                    <SelectItem value="Trailer">
-                      <span className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-purple-500" />
-                        Trailer
-                      </span>
-                    </SelectItem>
-                    <SelectItem value="Container">
-                      <span className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-orange-500" />
-                        Container
-                      </span>
-                    </SelectItem>
-                    <SelectItem value="Tanker">
-                      <span className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-cyan-500" />
-                        Tanker
-                      </span>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
+                <Input
+                  id="type"
+                  placeholder="e.g. Truck"
+                  value={newVehicle.type || ""}
+                  onChange={(e) => handleInputChange("type", e.target.value)}
+                  className="h-10 bg-[#f8f9fb] border-border focus:bg-white transition-colors"
+                />
               </div>
 
               <div className="space-y-1.5">
@@ -141,12 +104,12 @@ export default function AddVehicleSheet({
                   htmlFor="model"
                   className="text-xs text-muted-foreground uppercase tracking-wider"
                 >
-                  Model <span className="text-red-500">*</span>
+                  Model <span className="text-muted-foreground normal-case tracking-normal">(optional)</span>
                 </Label>
                 <Input
                   id="model"
                   placeholder="e.g. Tata 407"
-                  value={newVehicle.model}
+                  value={newVehicle.model || ""}
                   onChange={(e) => handleInputChange("model", e.target.value)}
                   className="h-10 bg-[#f8f9fb] border-border focus:bg-white transition-colors"
                 />
@@ -160,13 +123,13 @@ export default function AddVehicleSheet({
                   htmlFor="capacityKg"
                   className="text-xs text-muted-foreground uppercase tracking-wider"
                 >
-                  Max Capacity <span className="text-red-500">*</span>
+                  Max Capacity <span className="text-muted-foreground normal-case tracking-normal">(optional)</span>
                 </Label>
                 <div className="relative">
                   <Input
                     id="capacityKg"
                     placeholder="e.g. 12000"
-                    value={newVehicle.capacityKg}
+                    value={newVehicle.capacityKg || ""}
                     onChange={(e) =>
                       handleInputChange("capacityKg", e.target.value)
                     }
@@ -184,11 +147,11 @@ export default function AddVehicleSheet({
                   htmlFor="insuranceExpiry"
                   className="text-xs text-muted-foreground uppercase tracking-wider"
                 >
-                  Insurance Expiry <span className="text-red-500">*</span>
+                  Insurance Expiry <span className="text-muted-foreground normal-case tracking-normal">(optional)</span>
                 </Label>
                 <Input
                   id="insuranceExpiry"
-                  value={newVehicle.insuranceExpiry}
+                  value={newVehicle.insuranceExpiry || ""}
                   onChange={(e) =>
                     handleInputChange("insuranceExpiry", e.target.value)
                   }
@@ -234,28 +197,6 @@ export default function AddVehicleSheet({
                   </SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-
-            {/* GPS IMEI */}
-            <div className="space-y-1.5">
-              <Label
-                htmlFor="gpsImei"
-                className="text-xs text-muted-foreground uppercase tracking-wider"
-              >
-                GPS Device IMEI
-                <span className="ml-1.5 text-[10px] text-muted-foreground normal-case tracking-normal">(optional)</span>
-              </Label>
-              <Input
-                id="gpsImei"
-                placeholder="e.g. 869833082438627"
-                value={newVehicle.gpsImei || ""}
-                onChange={(e) => handleInputChange("gpsImei", e.target.value)}
-                className="h-10 bg-[#f8f9fb] border-border focus:bg-white transition-colors font-mono text-sm"
-                maxLength={20}
-              />
-              <p className="text-[10px] text-muted-foreground">
-                15-digit IMEI from the GPS tracker device attached to this vehicle.
-              </p>
             </div>
 
             {/* Info hint - only show when adding new vehicle */}

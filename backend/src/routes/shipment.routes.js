@@ -10,6 +10,7 @@ import {
   getPlantNumbers,
   getNextShipmentId,
   getShipmentsByDriver,
+  getRelatedPlants,
 } from "../controllers/shipment.controller.js";
 
 const router = express.Router();
@@ -21,6 +22,7 @@ router.get("/next-id",                        getNextShipmentId);
 router.get("/plant-numbers",                  getPlantNumbers);
 router.get("/invoices-by-plant/:plantRef",    getInvoicesByPlant);
 router.get("/by-driver/:driverId",            getShipmentsByDriver);
+router.get("/related-plants/:plantRef",        getRelatedPlants);
 
 // Shipment CRUD
 router.post("/",                              createShipment);

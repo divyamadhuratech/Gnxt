@@ -1,7 +1,7 @@
-import { Plus } from "lucide-react";
+import { Plus, Download } from "lucide-react";
 import { Button } from "../ui/button";
 
-export function ExpenseHeader({ onAddExpense }) {
+export function ExpenseHeader({ onAddExpense, onExport }) {
   return (
     <div className="flex items-start justify-between">
       <div>
@@ -10,13 +10,23 @@ export function ExpenseHeader({ onAddExpense }) {
           Track and manage shipment-related costs
         </p>
       </div>
-      <Button
-        onClick={onAddExpense}
-        className="bg-[#1d4ed8] hover:bg-[#1e40af] text-white gap-2 shadow-sm"
-      >
-        <Plus className="w-4 h-4" />
-        Add Expense
-      </Button>
+      <div className="flex items-center gap-3">
+        <Button
+          onClick={onExport}
+          variant="outline"
+          className="border-border gap-2 hover:bg-[#f8f9fb]"
+        >
+          <Download className="w-4 h-4 text-muted-foreground" />
+          Export to Excel
+        </Button>
+        <Button
+          onClick={onAddExpense}
+          className="bg-[#1d4ed8] hover:bg-[#1e40af] text-white gap-2 shadow-sm"
+        >
+          <Plus className="w-4 h-4" />
+          Add Expense
+        </Button>
+      </div>
     </div>
   );
 }

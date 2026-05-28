@@ -1,4 +1,12 @@
+import { useState } from "react";
 import { Eye, FileCheck, Pencil } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+} from "../ui/dropdown-menu";
 import { TableRow, TableCell } from "../ui/table";
 import { Badge } from "../ui/badge";
 import { getPODConfig, statusConfig } from "./utils/shipmentStyles";
@@ -13,6 +21,7 @@ export function PlantRow({
   setShipmentData,
   onDeleted,
 }) {
+  const [openPlants, setOpenPlants] = useState(false);
   const sc  = statusConfig[shipment.status] || { label: shipment.status || "N/A", className: "bg-gray-50 text-gray-700 border-gray-200" };
   const pod = getPODConfig(shipment.status);
 
@@ -64,9 +73,46 @@ export function PlantRow({
 
       {/* Plant Number */}
       <TableCell>
-        <span className="text-sm font-medium text-foreground bg-muted/50 px-2 py-0.5 rounded-sm">
-          {plantNumber}
-        </span>
+        {(() => {
+          const plantNumbers = plantNumber.split(",").map(p => p.trim()).filter(Boolean);
+          if (plantNumbers.length > 1) {
+            return (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-xs font-semibold text-[#1d4ed8] bg-blue-50/60 hover:bg-blue-50 border border-blue-200/60 px-2 py-1 rounded-md flex items-center gap-1.5 cursor-pointer transition-all duration-150 shadow-sm"
+                  >
+                    <span className="truncate max-w-[80px]">{plantNumbers[0]}</span>
+                    <span className="bg-[#1d4ed8] text-white text-[9px] px-1.5 py-0.5 rounded-full font-bold">+{plantNumbers.length - 1}</span>
+                    <svg className="w-3 h-3 text-[#1d4ed8]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-[140px] bg-white border border-border rounded-lg shadow-md py-1.5 text-xs font-semibold text-slate-700 z-50">
+                  <DropdownMenuLabel className="px-3 py-1 text-[9px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-1 mb-1">
+                    Selected Plants
+                  </DropdownMenuLabel>
+                  {plantNumbers.map((p, idx) => (
+                    <DropdownMenuItem
+                      key={idx}
+                      onClick={(e) => e.stopPropagation()}
+                      className="px-3 py-1.5 hover:bg-slate-50 transition-colors border-b last:border-b-0 border-slate-100 font-bold text-slate-800 cursor-default"
+                    >
+                      {p}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            );
+          }
+          return (
+            <span className="text-xs font-semibold text-slate-700 bg-slate-100 border border-slate-200/60 px-2.5 py-1 rounded-md">
+              {plantNumber}
+            </span>
+          );
+        })()}
       </TableCell>
 
       {/* Invoice Number column — only Shipment ID */}

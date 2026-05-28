@@ -20,6 +20,7 @@ const generateId = () => {
 const emptyEntry = () => ({
   id: generateId(),
   plantReferenceNumber: "",
+  additionalPlants: [],
   invoiceIds: [],
   totalTyres: 0,
   totalTubes: 0,
@@ -65,16 +66,22 @@ export function CreateShipmentSheet({ open, onOpenChange, onCreated, editShipmen
     if (!open) return;
 
     if (editShipment) {
-      const entries = (editShipment.destinations ?? []).map((dest) => ({
-        id: generateId(),
-        plantReferenceNumber: dest.plantReferenceNumber || "",
-        invoiceIds: (dest.invoiceIds ?? []).map((inv) => (typeof inv === "object" ? inv._id : inv)),
-        deliveryLocation: dest.deliveryLocation || "",
-        totalTyres: dest.totalTyres || 0,
-        totalTubes: dest.totalTubes || 0,
-        totalFlaps: dest.totalFlaps || 0,
-        weightKg: dest.weightKg || "",
-      }));
+      const entries = (editShipment.destinations ?? []).map((dest) => {
+        const parts = (dest.plantReferenceNumber || "").split(",").map((p) => p.trim()).filter(Boolean);
+        const primary = parts[0] || "";
+        const additional = parts.slice(1);
+        return {
+          id: generateId(),
+          plantReferenceNumber: primary,
+          additionalPlants: additional,
+          invoiceIds: (dest.invoiceIds ?? []).map((inv) => (typeof inv === "object" ? inv._id : inv)),
+          deliveryLocation: dest.deliveryLocation || "",
+          totalTyres: dest.totalTyres || 0,
+          totalTubes: dest.totalTubes || 0,
+          totalFlaps: dest.totalFlaps || 0,
+          weightKg: dest.weightKg || "",
+        };
+      });
       setDealerEntries(entries.length ? entries : [emptyEntry()]);
       setVehicleId(typeof editShipment.vehicleId === "object" ? editShipment.vehicleId._id : editShipment.vehicleId || "");
       setDriverId(typeof editShipment.driverId === "object" ? editShipment.driverId._id : editShipment.driverId || "");
@@ -105,6 +112,38 @@ export function CreateShipmentSheet({ open, onOpenChange, onCreated, editShipmen
   const updateEntry = (id, field, value) =>
     setDealerEntries((p) => p.map((e) => (e.id === id ? { ...e, [field]: value } : e)));
 
+  const addRelatedPlant = (entryId, plantRef) => {
+    setDealerEntries((p) =>
+      p.map((e) => {
+        if (e.id === entryId) {
+          const additional = e.additionalPlants || [];
+          if (!additional.includes(plantRef)) {
+            return {
+              ...e,
+              additionalPlants: [...additional, plantRef],
+            };
+          }
+        }
+        return e;
+      })
+    );
+  };
+
+  const removeRelatedPlant = (entryId, plantRef) => {
+    setDealerEntries((p) =>
+      p.map((e) => {
+        if (e.id === entryId) {
+          const additional = e.additionalPlants || [];
+          return {
+            ...e,
+            additionalPlants: additional.filter((pr) => pr !== plantRef),
+          };
+        }
+        return e;
+      })
+    );
+  };
+
   const resetForm = () => {
     setDealerEntries([emptyEntry()]);
     setVehicleId(""); setVehicleOpen(false);
@@ -133,7 +172,7 @@ export function CreateShipmentSheet({ open, onOpenChange, onCreated, editShipmen
         return;
       }
     }
-    const plants = dealerEntries.map((e) => e.plantReferenceNumber);
+    const plants = dealerEntries.map((e) => [e.plantReferenceNumber, ...(e.additionalPlants || [])]).flat().filter(Boolean);
     const duplicates = plants.filter((p, i) => plants.indexOf(p) !== i);
     if (duplicates.length > 0) {
       setError(`Duplicate plant: ${[...new Set(duplicates)].join(", ")} — each destination must use a different plant`);
@@ -146,7 +185,7 @@ export function CreateShipmentSheet({ open, onOpenChange, onCreated, editShipmen
     try {
       const payload = {
         destinations: dealerEntries.map((e) => ({
-          plantReferenceNumber: e.plantReferenceNumber,
+          plantReferenceNumber: [e.plantReferenceNumber, ...(e.additionalPlants || [])].filter(Boolean).join(", "),
           invoiceIds: e.invoiceIds || [],
           deliveryLocation: e.deliveryLocation || "",
           totalTyres: e.totalTyres || 0,
@@ -269,9 +308,12 @@ export function CreateShipmentSheet({ open, onOpenChange, onCreated, editShipmen
                   usedPlantNumbers={
                     dealerEntries
                       .filter((e) => e.id !== entry.id)
-                      .map((e) => e.plantReferenceNumber)
+                      .map((e) => [e.plantReferenceNumber, ...(e.additionalPlants || [])])
+                      .flat()
                       .filter(Boolean)
                   }
+                  onAddRelatedPlant={(plantRef) => addRelatedPlant(entry.id, plantRef)}
+                  onRemoveRelatedPlant={(plantRef) => removeRelatedPlant(entry.id, plantRef)}
                 />
               ))}
               <Button

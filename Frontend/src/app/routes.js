@@ -7,7 +7,6 @@ import { VehicleTrackingPage } from "./components/vehicle-tracking/VehicleTracki
 import { PlaceholderPage } from "./components/PlaceholderPage";
 import { DriversPage } from "./components/drivers/DriversPage";
 import { VehiclesPage } from "./components/Vechicles_Mgmt/VehiclesPage";
-import { DealersPage } from "./components/DealersPage";
 import { ReportsPage } from "./components/ReportsPage";
 import { ExpensesPage } from "./components/expenses/ExpensesPage";
 import { InvoicesPage } from "./components/invoices/InvoicesPage";
@@ -26,8 +25,6 @@ export const router = createBrowserRouter([
       { path: "diesel", Component: PlaceholderPage },
       { path: "vehicles", Component: VehiclesPage },
       { path: "drivers", Component: DriversPage },
-      { path: "dealers", Component: DealersPage },
-      { path: "products", Component: PlaceholderPage },
       { path: "reports", Component: ReportsPage },
       { path: "invoices", Component: InvoicesPage },
       { path: "expenses", Component: ExpensesPage },

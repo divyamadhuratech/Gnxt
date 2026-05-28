@@ -16,4 +16,19 @@ export const statusStyles = {
     text: "text-red-700",
     dot: "bg-red-500",
   },
+  "Waiting for Dispatch": {
+    bg: "bg-blue-50 border-blue-200",
+    text: "text-blue-700",
+    dot: "bg-blue-500",
+  },
+  "In Transit": {
+    bg: "bg-emerald-50 border-emerald-200",
+    text: "text-emerald-700",
+    dot: "bg-emerald-500",
+  },
+  Assigned: {
+    bg: "bg-blue-50 border-blue-200",
+    text: "text-blue-700",
+    dot: "bg-blue-500",
+  }
 };
