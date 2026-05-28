@@ -11,7 +11,7 @@ const API_BASE_URL = "http://localhost:5000/api/vehicles";
 export function VehiclesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [vehicles, setVehicles] = useState([]);
-  const [typeFilter, setTypeFilter] = useState("all");
+
   const [statusFilter, setStatusFilter] = useState("all");
   const [availFilter, setAvailFilter] = useState("all");
   const [addSheetOpen, setAddSheetOpen] = useState(false);
@@ -46,15 +46,15 @@ export function VehiclesPage() {
 
   const filtered = vehicles.filter((v) => {
     const matchesSearch =
-      v.vehicleNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      v.model.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      v._id.toLowerCase().includes(searchQuery.toLowerCase());
+      (v.vehicleNo || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (v.model || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (v._id || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (v.type || "").toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesType = typeFilter === "all" || v.type === typeFilter;
     const matchesStatus = statusFilter === "all" || v.status === statusFilter;
     const matchesAvail = availFilter === "all" || v.availability === availFilter;
 
-    return matchesSearch && matchesType && matchesStatus && matchesAvail;
+    return matchesSearch && matchesStatus && matchesAvail;
   });
 
   const totalActive = vehicles.filter(
@@ -199,7 +199,6 @@ export function VehiclesPage() {
 
   // ==================== CLEAR FILTERS ====================
   const handleClearFilters = () => {
-    setTypeFilter("all");
     setStatusFilter("all");
     setAvailFilter("all");
     setSearchQuery("");
@@ -250,15 +249,12 @@ export function VehiclesPage() {
       <VehicleFiltersBar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
-        typeFilter={typeFilter}
-        onTypeFilterChange={setTypeFilter}
         statusFilter={statusFilter}
         onStatusFilterChange={setStatusFilter}
         availFilter={availFilter}
         onAvailFilterChange={setAvailFilter}
         onClearFilters={handleClearFilters}
         hasActiveFilters={
-          typeFilter !== "all" ||
           statusFilter !== "all" ||
           availFilter !== "all" ||
           searchQuery

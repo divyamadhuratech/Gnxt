@@ -30,7 +30,7 @@ const invoiceSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["In Transit", "Pending", "Delivered"],
+      enum: ["In Transit", "Pending", "Delivered", "Assigned"],
       default: "Pending",
       index: true,
     },

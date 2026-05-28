@@ -12,8 +12,6 @@ import {
 export default function VehicleFiltersBar({
   searchQuery,
   onSearchChange,
-  typeFilter,
-  onTypeFilterChange,
   statusFilter,
   onStatusFilterChange,
   availFilter,
@@ -34,20 +32,6 @@ export default function VehicleFiltersBar({
           />
         </div>
 
-        <Select value={typeFilter} onValueChange={onTypeFilterChange}>
-          <SelectTrigger className="w-[150px] h-9 bg-white text-sm">
-            <Filter className="w-3.5 h-3.5 text-muted-foreground mr-1.5" />
-            <SelectValue placeholder="Vehicle Type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Types</SelectItem>
-            <SelectItem value="Truck">Truck</SelectItem>
-            <SelectItem value="Mini Truck">Mini Truck</SelectItem>
-            <SelectItem value="Trailer">Trailer</SelectItem>
-            <SelectItem value="Container">Container</SelectItem>
-            <SelectItem value="Tanker">Tanker</SelectItem>
-          </SelectContent>
-        </Select>
 
         <Select value={statusFilter} onValueChange={onStatusFilterChange}>
           <SelectTrigger className="w-[160px] h-9 bg-white text-sm">

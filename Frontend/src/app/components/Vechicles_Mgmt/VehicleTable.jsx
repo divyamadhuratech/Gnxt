@@ -2,13 +2,11 @@ import {
   Truck,
   Eye,
   MoreHorizontal,
-  MapPin,
   Wrench,
   AlertTriangle,
   CheckCircle2,
   XCircle,
   Edit2,
-  Trash2,
   Check,
   X,
 } from "lucide-react";
@@ -241,15 +239,6 @@ function VehicleTableRow({
               Edit Vehicle
             </DropdownMenuItem>
 
-            {/* Delete */}
-            <DropdownMenuItem
-              className="text-xs gap-2 cursor-pointer text-red-600 focus:text-red-600"
-              onClick={() => onDeleteVehicle(vehicle._id)}
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              Delete Vehicle
-            </DropdownMenuItem>
-
             <DropdownMenuSeparator />
 
             {/* Schedule Maintenance */}
@@ -268,15 +257,6 @@ function VehicleTableRow({
                   Schedule Maintenance
                 </>
               )}
-            </DropdownMenuItem>
-
-            {/* Track Location */}
-            <DropdownMenuItem
-              className="text-xs gap-2 cursor-pointer"
-              onClick={() => onTrackLocation(vehicle)}
-            >
-              <MapPin className="w-3.5 h-3.5" />
-              Track Location
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

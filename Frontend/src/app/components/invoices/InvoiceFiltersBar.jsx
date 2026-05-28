@@ -39,6 +39,7 @@ export function InvoiceFiltersBar({
         <SelectContent>
           <SelectItem value="All">All Status</SelectItem>
           <SelectItem value="Pending">Pending</SelectItem>
+          <SelectItem value="Assigned">Assigned</SelectItem>
           <SelectItem value="In Transit">In Transit</SelectItem>
           <SelectItem value="Delivered">Delivered</SelectItem>
         </SelectContent>

@@ -77,6 +77,21 @@ export const createShipment = async (req, res) => {
 
     await shipment.save();
 
+    // Mark selected invoices as Assigned
+    const allInvoiceIds = destinationDocs.reduce((acc, dest) => {
+      if (dest.invoiceIds?.length) {
+        acc.push(...dest.invoiceIds);
+      }
+      return acc;
+    }, []);
+
+    if (allInvoiceIds.length) {
+      await Invoice.updateMany(
+        { _id: { $in: allInvoiceIds } },
+        { status: "Assigned" }
+      );
+    }
+
     // Mark vehicle as Assigned
     await Vehicle.findByIdAndUpdate(vehicleId, { availability: "Assigned", status: "Assigned" });
     // Mark driver as Assigned
@@ -240,6 +255,30 @@ export const updateShipmentStatus = async (req, res) => {
       await Driver.findByIdAndUpdate(shipment.driverId, { tripStatus: "In Transit", assignedVehicle: shipment.vehicleNumber });
     }
 
+    // Sync invoice statuses
+    const allInvoiceIds = shipment.destinations?.reduce((acc, dest) => {
+      if (dest.invoiceIds?.length) {
+        acc.push(...dest.invoiceIds);
+      }
+      return acc;
+    }, []) || [];
+
+    if (allInvoiceIds.length) {
+      let targetInvoiceStatus = "Assigned";
+      if (status === "In Transit") {
+        targetInvoiceStatus = "In Transit";
+      } else if (status === "Delivered") {
+        targetInvoiceStatus = "Delivered";
+      } else if (status === "Returned" || status === "Cancelled") {
+        targetInvoiceStatus = "Pending";
+      }
+
+      await Invoice.updateMany(
+        { _id: { $in: allInvoiceIds } },
+        { status: targetInvoiceStatus }
+      );
+    }
+
     res.status(200).json({ success: true, message: "Status updated", data: shipment });
   } catch (err) {
     res.status(500).json({ success: false, message: "Error updating status", error: err.message });
@@ -343,6 +382,41 @@ export const updateShipment = async (req, res) => {
       update.destinations  = resolvedDests;
       update.totalWeightKg = resolvedDests.reduce((s, d) => s + (d.weightKg || 0), 0);
       update.totalQuantity = resolvedDests.reduce((s, d) => s + (d.totalQuantity || 0), 0);
+
+      // Revert old invoices to Pending
+      const oldInvoiceIds = existing.destinations?.reduce((acc, dest) => {
+        if (dest.invoiceIds?.length) {
+          acc.push(...dest.invoiceIds);
+        }
+        return acc;
+      }, []) || [];
+
+      if (oldInvoiceIds.length) {
+        await Invoice.updateMany(
+          { _id: { $in: oldInvoiceIds } },
+          { status: "Pending" }
+        );
+      }
+
+      // Mark the new set of invoices as Assigned (or current status)
+      const newInvoiceIds = resolvedDests.reduce((acc, dest) => {
+        if (dest.invoiceIds?.length) {
+          acc.push(...dest.invoiceIds);
+        }
+        return acc;
+      }, []);
+
+      if (newInvoiceIds.length) {
+        const targetStatus = update.status || existing.status || "Assigned";
+        let invoiceStatus = "Assigned";
+        if (targetStatus === "In Transit") invoiceStatus = "In Transit";
+        else if (targetStatus === "Delivered") invoiceStatus = "Delivered";
+
+        await Invoice.updateMany(
+          { _id: { $in: newInvoiceIds } },
+          { status: invoiceStatus }
+        );
+      }
     }
 
     const shipment = await Shipment.findByIdAndUpdate(req.params.id, update, { new: true });
@@ -358,6 +432,22 @@ export const deleteShipment = async (req, res) => {
   try {
     const shipment = await Shipment.findByIdAndDelete(req.params.id);
     if (!shipment) return res.status(404).json({ success: false, message: "Shipment not found" });
+
+    // Revert associated invoices back to Pending
+    const allInvoiceIds = shipment.destinations?.reduce((acc, dest) => {
+      if (dest.invoiceIds?.length) {
+        acc.push(...dest.invoiceIds);
+      }
+      return acc;
+    }, []) || [];
+
+    if (allInvoiceIds.length) {
+      await Invoice.updateMany(
+        { _id: { $in: allInvoiceIds } },
+        { status: "Pending" }
+      );
+    }
+
     res.status(200).json({ success: true, message: "Shipment deleted" });
   } catch (err) {
     res.status(500).json({ success: false, message: "Error deleting shipment", error: err.message });

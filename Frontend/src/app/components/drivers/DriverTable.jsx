@@ -9,7 +9,6 @@ import {
 import { Button } from "../ui/button";
 import {
   Eye,
-  Trash2,
   Edit2,
   Truck,
   PhoneIcon,
@@ -204,15 +203,6 @@ export function DriverTable({
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                           Edit
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 px-3 text-xs text-muted-foreground hover:text-red-600 hover:bg-red-50 gap-1.5"
-                          onClick={() => onDeleteDriver(driver._id)}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          Delete
                         </Button>
                       </div>
                     </TableCell>

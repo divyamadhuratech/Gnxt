@@ -57,7 +57,11 @@ export function TripTable({ filteredVehicles, onNavigate }) {
           </TableHeader>
           <TableBody>
             {filteredVehicles.map((vehicle) => {
-              const ss = statusStyles[vehicle.status];
+              const ss = statusStyles[vehicle.status] || {
+                bg: "bg-slate-50 border-slate-200",
+                text: "text-slate-600",
+                dot: "bg-slate-500",
+              };
               return (
                 <TableRow
                   key={vehicle.vehicleNumber}
