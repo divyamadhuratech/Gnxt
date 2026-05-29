@@ -44,6 +44,7 @@ export function StatDetailView({
   setDateFilter,
   showHistory,
   setShowHistory,
+  onView,
 }) {
   return (
     <div className="p-8 max-w-[1600px] mx-auto space-y-6 h-full flex flex-col">
@@ -287,10 +288,10 @@ export function StatDetailView({
                     <span className="text-sm text-muted-foreground">{item.eta || "Today"}</span>
                   </TableCell>
                   <TableCell className="w-[110px]">
-                    {item.podStatus === "Signed" || showHistory ? (
-                      <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200">
-                        <CheckCircle2 className="w-3 h-3" />
-                        Signed
+                    {item.podConfig ? (
+                      <span className={`inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full border ${item.podConfig.className}`}>
+                        {item.podConfig.icon ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
+                        {item.podConfig.label}
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full border bg-amber-50 text-amber-700 border-amber-200">
@@ -303,6 +304,7 @@ export function StatDetailView({
                     <Button
                       variant="ghost"
                       size="icon"
+                      onClick={() => onView && onView(item)}
                       className="w-8 h-8 text-muted-foreground hover:text-foreground"
                     >
                       <Eye className="w-4 h-4" />
@@ -311,68 +313,17 @@ export function StatDetailView({
                 </TableRow>
               ))}
               {tableData.length === 0 && (
-                <>
-                  {/* Fallback demo row placed directly in the main table so it aligns perfectly */}
-                  <TableRow className="opacity-60 pointer-events-none hover:bg-transparent border-b-0">
-                    <TableCell className="pl-5 w-[150px]">
-                      <span className="font-medium text-[#1d4ed8]">DEMO-2026-001</span>
-                    </TableCell>
-                    <TableCell className="w-[200px]">
-                      <p className="text-sm text-foreground">Example Dealer</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">Mumbai, MH</p>
-                    </TableCell>
-                    <TableCell className="w-[150px]">
-                      <div className="flex items-center gap-2">
-                        <Package className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                        <span className="text-sm text-foreground">500 kg</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="w-[160px]">
-                      <p className="text-sm text-foreground">John Doe</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">+91 99999 99999</p>
-                    </TableCell>
-                    <TableCell className="w-[160px]">
-                      <div>
-                        <p className="text-sm text-foreground">MH01 AB 1234</p>
-                        <Badge
-                          variant="outline"
-                          className="mt-0.5 text-[10px] px-1.5 py-0 rounded-sm border-blue-200 text-blue-600 bg-blue-50/60"
-                        >
-                          Demo
-                        </Badge>
-                      </div>
-                    </TableCell>
-                    <TableCell className="w-[110px]">
-                      <span className="text-sm text-muted-foreground">Today</span>
-                    </TableCell>
-                    <TableCell className="w-[110px]">
-                      <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200">
-                        <CheckCircle2 className="w-3 h-3" />
-                        Signed
-                      </span>
-                    </TableCell>
-                    <TableCell className="w-[60px] pr-5 text-center">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="w-8 h-8 text-muted-foreground"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
                   <TableRow className="hover:bg-transparent">
                     <TableCell colSpan={8} className="p-0 border-none bg-slate-50/50">
                       <div className="w-full flex flex-col items-center justify-center py-10 px-6">
                         <h4 className="text-sm font-semibold text-foreground mb-1">No Data Available</h4>
                         <p className="text-sm text-muted-foreground max-w-sm text-center">
                           Please adjust your filters or select a different stat card above (e.g.,
-                          "Active Shipments") to view actual demo data.
+                          "Active Shipments") to view actual data.
                         </p>
                       </div>
                     </TableCell>
                   </TableRow>
-                </>
               )}
             </TableBody>
           </Table>

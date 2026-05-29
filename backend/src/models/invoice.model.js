@@ -34,6 +34,12 @@ const invoiceSchema = new mongoose.Schema(
       default: "Pending",
       index: true,
     },
+
+    // Stamped the moment status becomes "Delivered" — used for 5-min auto-history rule
+    deliveredAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );

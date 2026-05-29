@@ -139,6 +139,38 @@ export function HistoryShipmentSheet({ open, onOpenChange, historyShipments = []
             </SheetDescription>
           </div>
           <div className="flex items-center gap-3">
+            {selectedIds.length > 0 && (
+              <>
+                <Button
+                  variant="ghost"
+                  onClick={() => setSelectedIds([])}
+                  className="text-slate-500 hover:text-slate-700 hover:bg-slate-100 text-xs font-semibold h-9 px-3 gap-1.5 transition-all"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  Clear
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={async () => {
+                    if (window.confirm(`Are you sure you want to delete ${selectedIds.length} shipments from history?`)) {
+                      for (const id of selectedIds) {
+                        try {
+                          await fetch(`${API_BASE_URL}/shipments/${id}`, { method: "DELETE" });
+                        } catch (e) {
+                          console.error("Failed to delete", id, e);
+                        }
+                      }
+                      setSelectedIds([]);
+                      if (onDeleted) onDeleted();
+                    }
+                  }}
+                  className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 text-xs font-semibold h-9 px-3 gap-1.5 transition-all"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Delete ({selectedIds.length})
+                </Button>
+              </>
+            )}
             <Button
               onClick={handleExport}
               disabled={selectedIds.length === 0}
@@ -148,7 +180,9 @@ export function HistoryShipmentSheet({ open, onOpenChange, historyShipments = []
               Export Selected ({selectedIds.length})
             </Button>
           </div>
+
         </div>
+
 
         {/* Filters Panel */}
         <div className="bg-white border border-border rounded-xl p-4 shadow-sm space-y-3 mb-5 shrink-0">

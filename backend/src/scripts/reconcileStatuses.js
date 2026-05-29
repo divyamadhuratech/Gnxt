@@ -15,9 +15,9 @@ async function run() {
   await mongoose.connect(process.env.MONGO_URI);
   console.log("Connected successfully!");
 
-  // Find all shipments that are completed, cancelled, closed, or returned
+  // Find all shipments that are completed, cancelled, or returned (excluding Closed)
   const inactiveShipments = await Shipment.find({
-    status: { $in: ["Returned", "Cancelled", "Closed"] }
+    status: { $in: ["Returned", "Cancelled"] }
   }).lean();
 
   console.log(`Found ${inactiveShipments.length} completed/inactive shipments in DB.`);
@@ -60,14 +60,14 @@ async function run() {
     }
   }
 
-  // Double check: if there are no active (Pending, In Transit, Delivered) shipments for a vehicle or driver,
+  // Double check: if there are no active (Pending, In Transit, Delivered, Closed) shipments for a vehicle or driver,
   // ensure they are idle as well!
   console.log("\nPerforming double-check validation on all vehicles...");
   const allVehicles = await Vehicle.find({});
   for (const vehicle of allVehicles) {
     const activeShipment = await Shipment.findOne({
       vehicleId: vehicle._id,
-      status: { $in: ["Pending", "In Transit", "Delivered"] }
+      status: { $in: ["Pending", "In Transit", "Delivered", "Closed"] }
     });
     if (!activeShipment && (vehicle.availability !== "Available" || vehicle.status !== "Idle")) {
       console.log(`Double check: Reconciling Vehicle ${vehicle.vehicleNo} -> Idle / Available (No active shipments found)`);
@@ -83,7 +83,7 @@ async function run() {
   for (const driver of allDrivers) {
     const activeShipment = await Shipment.findOne({
       driverId: driver._id,
-      status: { $in: ["Pending", "In Transit", "Delivered"] }
+      status: { $in: ["Pending", "In Transit", "Delivered", "Closed"] }
     });
     if (!activeShipment && (driver.tripStatus !== "Idle" || driver.assignedVehicle !== null)) {
       console.log(`Double check: Reconciling Driver ${driver.name} -> Idle (No active shipments found)`);

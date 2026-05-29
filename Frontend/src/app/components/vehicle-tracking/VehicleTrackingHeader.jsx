@@ -71,7 +71,7 @@ export function VehicleTrackingHeader({
           </Button>
         )}
 
-        {(activeShipment?.status === "In Transit" || activeShipment?.status === "Delivered") && (
+        {(activeShipment?.status === "In Transit" || activeShipment?.status === "Delivered" || activeShipment?.status === "Closed") && (
           <Button
             className="gap-2 h-9 bg-amber-600 hover:bg-amber-700 text-white cursor-pointer shadow-sm animate-pulse"
             onClick={onReturn}

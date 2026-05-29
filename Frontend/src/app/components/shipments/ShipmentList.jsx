@@ -43,12 +43,14 @@ export function ShipmentList() {
 
   const activeShipmentsOnly = useMemo(() => {
     const list = Array.isArray(shipmentData) ? shipmentData : [];
-    return list.filter(s => s.status !== "Returned" && s.status !== "Cancelled" && s.status !== "Closed");
+    // Keep "Closed" in active list until vehicle physically returns ("Returned")
+    return list.filter(s => s.status !== "Returned" && s.status !== "Cancelled");
   }, [shipmentData]);
 
   const historyShipmentsOnly = useMemo(() => {
     const list = Array.isArray(shipmentData) ? shipmentData : [];
-    return list.filter(s => s.status === "Returned" || s.status === "Cancelled" || s.status === "Closed");
+    // History only shows completed trips (Returned) or Cancelled
+    return list.filter(s => s.status === "Returned" || s.status === "Cancelled");
   }, [shipmentData]);
 
   const filteredShipments = useMemo(() => {

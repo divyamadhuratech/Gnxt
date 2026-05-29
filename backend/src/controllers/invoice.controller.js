@@ -125,6 +125,16 @@ export const getInvoices = async (req, res) => {
       query.status = status;
     }
 
+    // ACTIVE FILTER: exclude Delivered invoices that are older than 5 minutes
+    // (they have moved to history)
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    query.$nor = [
+      {
+        status: "Delivered",
+        deliveredAt: { $lt: fiveMinutesAgo },
+      },
+    ];
+
     // FETCH MATCHING RECORDS
     const invoices = await Invoice.find(query).sort({
       createdAt: -1,
@@ -196,9 +206,18 @@ export const updateInvoiceStatus = async (req, res) => {
     const { plantId } = req.params;
     const { status } = req.body;
 
+    // Stamp deliveredAt when status becomes Delivered
+    const updateData = { status };
+    if (status === "Delivered") {
+      updateData.deliveredAt = new Date();
+    } else {
+      // Reset deliveredAt if status reverts (e.g., back to Assigned/Pending)
+      updateData.deliveredAt = null;
+    }
+
     await Invoice.updateMany(
       { _id: plantId },
-      { status }
+      updateData
     );
 
     res.json({
@@ -288,3 +307,68 @@ export const getInvoicesByPlant = async (req, res) => {
     });
   }
 };
+
+/* ─────────────────────────────────────────────────
+   GET /api/invoices/history
+   Returns Delivered invoices that have aged past 5 minutes (moved to history)
+───────────────────────────────────────────────── */
+export const getInvoiceHistory = async (req, res) => {
+  try {
+    let { search = "", page = 1, limit = 15 } = req.query;
+    page  = Number(page);
+    limit = Number(limit);
+
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+
+    const query = {
+      status: "Delivered",
+      deliveredAt: { $lt: fiveMinutesAgo },
+    };
+
+    if (search.trim()) {
+      query.$or = [
+        { plantReferenceNumber: { $regex: search, $options: "i" } },
+        { customerName:         { $regex: search, $options: "i" } },
+        { invoiceNumber:        { $regex: search, $options: "i" } },
+      ];
+    }
+
+    const invoices = await Invoice.find(query).sort({ deliveredAt: -1 });
+
+    // Group by plant + customer (same as main list)
+    const groupedMap = new Map();
+    invoices.forEach((inv) => {
+      const key = `${inv.plantReferenceNumber}_${inv.customerName}`;
+      if (!groupedMap.has(key)) {
+        groupedMap.set(key, {
+          _id: inv._id,
+          plantNumber: inv.plantReferenceNumber,
+          customerName: inv.customerName,
+          location: inv.location || "",
+          status: inv.status,
+          deliveredAt: inv.deliveredAt,
+          invoices: [],
+        });
+      }
+      groupedMap.get(key).invoices.push({
+        _id: inv._id,
+        invoiceNumber: inv.invoiceNumber,
+        invoiceDate: inv.invoiceDate,
+        deliveredAt: inv.deliveredAt,
+      });
+    });
+
+    const groupedData = Array.from(groupedMap.values());
+    const total       = groupedData.length;
+    const totalPages  = Math.ceil(total / limit);
+    const paginated   = groupedData.slice((page - 1) * limit, page * limit);
+
+    res.status(200).json({
+      success: true,
+      data: paginated,
+      pagination: { total, totalPages, currentPage: page },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

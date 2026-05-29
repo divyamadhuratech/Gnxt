@@ -119,7 +119,7 @@ export function VehicleTrackingPage() {
 
     // 3. In Transit (Active at same time when dispatched)
     const isInTransit = activeShipment.status === "In Transit";
-    const completedTransit = activeShipment.status === "Delivered" || activeShipment.status === "Returned";
+    const completedTransit = activeShipment.status === "Delivered" || activeShipment.status === "Returned" || activeShipment.status === "Closed";
     timeline.push({
       step: "In Transit",
       timestamp: activeShipment.dispatchDate
@@ -130,15 +130,15 @@ export function VehicleTrackingPage() {
       detail: isInTransit ? "Vehicle is actively in transit towards the destination." : null
     });
 
-    // 4. Cargo Delivered (Delivered or Returned)
-    const isDelivered = activeShipment.status === "Delivered" || activeShipment.status === "Returned";
+    // 4. Cargo Delivered (Delivered or Returned or Closed)
+    const isDelivered = activeShipment.status === "Delivered" || activeShipment.status === "Returned" || activeShipment.status === "Closed";
     timeline.push({
       step: "Cargo Delivered",
       timestamp: activeShipment.deliveryDate
         ? new Date(activeShipment.deliveryDate).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })
         : "---",
       completed: isDelivered,
-      active: activeShipment.status === "Delivered",
+      active: activeShipment.status === "Delivered" || activeShipment.status === "Closed",
     });
 
     // 5. Returned (Completed upon clicking returned button)
@@ -203,11 +203,10 @@ export function VehicleTrackingPage() {
           <div className="xl:col-span-3 space-y-6">
             <KpiCards
               departedTime={activeShipment?.dispatchDate ? new Date(activeShipment.dispatchDate).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "---"}
-              arrivedTime={activeShipment?.returnedDate 
-                ? new Date(activeShipment.returnedDate).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) 
-                : (activeShipment?.deliveryDate 
-                  ? new Date(activeShipment.deliveryDate).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) 
-                  : "---")}
+              arrivedTime={activeShipment?.returnedDate
+                ? new Date(activeShipment.returnedDate).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })
+                : "---"}
+
             />
             {activeShipment && <TimelineSection data={data} />}
           </div>

@@ -367,9 +367,16 @@ export function ViewShipmentSheet({ open, onOpenChange, shipment, onStatusChange
               </>
             )}
             {s.status === "Closed" && (
-              <>
-                <Button className="gap-2 bg-[#1d4ed8] hover:bg-[#1e40af] text-white shadow-sm"><Download className="w-4 h-4" />Download Invoice</Button>
-              </>
+              <span className="inline-flex items-center gap-1.5 text-xs px-3.5 py-2 font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                Shipment Completed
+              </span>
+            )}
+            {s.status === "Returned" && (
+              <span className="inline-flex items-center gap-1.5 text-xs px-3.5 py-2 font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                Shipment Completed
+              </span>
             )}
             {s.status === "Cancelled" && (
               <Button className="gap-2 bg-[#1d4ed8] hover:bg-[#1e40af] text-white shadow-sm" onClick={() => { if (onEdit) onEdit(s); onOpenChange(false); }}>

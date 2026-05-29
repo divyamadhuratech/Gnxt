@@ -9,6 +9,7 @@ import {
   Gauge,
   AlertTriangle,
   Locate,
+  Check,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -75,11 +76,10 @@ export function TripTable({ filteredVehicles, onNavigate }) {
                       <div className="mt-0.5">
                         <Badge
                           variant="outline"
-                          className={`text-[10px] px-1.5 py-0 rounded-sm ${
-                            vehicle.vehicleType === "Own"
+                          className={`text-[10px] px-1.5 py-0 rounded-sm ${vehicle.vehicleType === "Own"
                               ? "border-blue-200 text-blue-600 bg-blue-50/60"
                               : "border-orange-200 text-orange-600 bg-orange-50/60"
-                          }`}
+                            }`}
                         >
                           {vehicle.vehicleType}
                         </Badge>
@@ -114,9 +114,8 @@ export function TripTable({ filteredVehicles, onNavigate }) {
                       className={`inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border ${ss.bg} ${ss.text}`}
                     >
                       <span
-                        className={`w-1.5 h-1.5 rounded-full ${ss.dot} ${
-                          vehicle.status === "Moving" ? "animate-pulse" : ""
-                        }`}
+                        className={`w-1.5 h-1.5 rounded-full ${ss.dot} ${vehicle.status === "Moving" ? "animate-pulse" : ""
+                          }`}
                       />
                       {vehicle.status}
                     </span>
@@ -124,18 +123,33 @@ export function TripTable({ filteredVehicles, onNavigate }) {
 
                   {/* View Tracking Button */}
                   <TableCell className="pr-5 text-center">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="gap-1.5 text-xs border-[#c7d7fe] text-[#1d4ed8] hover:bg-[#eef2ff] hover:border-[#a5b4fc] transition-all h-8 px-3"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onNavigate(vehicle.vehicleNumber);
-                      }}
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                      View Tracking
-                    </Button>
+                    <div className="flex items-center justify-end gap-2">
+                      {(vehicle.status === "In Transit" || vehicle.status === "Returning" || vehicle.status === "Delivered") && (
+                        <Button
+                          size="sm"
+                          className="gap-1.5 text-xs bg-amber-600 hover:bg-amber-700 text-white shadow-sm h-8 px-3"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (onMarkArrival) onMarkArrival(vehicle.shipmentDbId);
+                          }}
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                          Mark Arrival
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1.5 text-xs border-[#c7d7fe] text-[#1d4ed8] hover:bg-[#eef2ff] hover:border-[#a5b4fc] transition-all h-8 px-3"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onNavigate(vehicle.vehicleNumber);
+                        }}
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        View Tracking
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               );

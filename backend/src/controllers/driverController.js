@@ -3,6 +3,12 @@ import Driver from "../models/Driver.js";
 // GET all drivers
 export const getDrivers = async (req, res) => {
   try {
+    // Auto-migrate any old "In Transit" statuses to "Driving"
+    await Driver.updateMany(
+      { tripStatus: "In Transit" },
+      { $set: { tripStatus: "Driving" } }
+    );
+
     const drivers = await Driver.find().sort({ createdAt: -1 });
     res.json(drivers);
   } catch (error) {

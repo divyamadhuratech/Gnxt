@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import * as XLSX from "xlsx";
 import { ExpenseHeader } from "./ExpenseHeader";
 import { ExpenseFiltersBar } from "./ExpenseFiltersBar";
 import { ExpenseSummaryCards } from "./ExpenseSummaryCards";
@@ -147,53 +148,75 @@ export function ExpensesPage() {
 
     let groupedData = Array.from(groupedMap.values());
 
-    // 2. Filtering
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      groupedData = groupedData.filter(
-        (g) =>
-          g.tripId.toLowerCase().includes(q) ||
-          g.driverName.toLowerCase().includes(q) ||
-          g.vehicleId.toLowerCase().includes(q) ||
-          g.customerName.toLowerCase().includes(q) ||
-          g.breakdown.some((e) => (e.lrNumber || "").toLowerCase().includes(q))
-      );
-    }
-    if (filterShipment !== "all") {
-      groupedData = groupedData.filter(
-        (g) => g.tripId === filterShipment || g.breakdown.some((e) => e.lrNumber === filterShipment)
-      );
-    }
-    if (filterVehicle !== "all") {
-      groupedData = groupedData.filter((g) => g.vehicleId === filterVehicle);
-    }
-    if (filterDriver !== "all") {
-      groupedData = groupedData.filter((g) => g.driverName === filterDriver);
-    }
-    if (filterDealer !== "all") {
-      groupedData = groupedData.filter((g) => {
-        const parts = g.customerName.split(",").map(p => p.trim());
-        return parts.includes(filterDealer);
-      });
-    }
-    if (filterExpenseType !== "all") {
-      groupedData = groupedData.filter((g) =>
-        g.breakdown.some((e) => e.items?.some((item) => item.expenseType === filterExpenseType))
-      );
-    }
-    if (filterDate) {
-      const target = new Date(filterDate);
-      groupedData = groupedData.filter((g) =>
-        g.breakdown.some((e) => {
+    // 2. Deep Filtering (filter breakdown items and recalculate totals)
+    groupedData = groupedData.map(g => {
+      // Create a copy of the breakdown to filter
+      let filteredBreakdown = [...g.breakdown];
+
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        // Only apply deep search filter if the group-level fields don't match
+        const groupMatches = g.tripId.toLowerCase().includes(q) ||
+                             g.driverName.toLowerCase().includes(q) ||
+                             g.vehicleId.toLowerCase().includes(q) ||
+                             g.customerName.toLowerCase().includes(q);
+        if (!groupMatches) {
+          filteredBreakdown = filteredBreakdown.filter(e => (e.lrNumber || "").toLowerCase().includes(q));
+        }
+      }
+
+      if (filterShipment !== "all") {
+        if (g.tripId !== filterShipment) {
+          filteredBreakdown = filteredBreakdown.filter(e => e.lrNumber === filterShipment);
+        }
+      }
+
+      if (filterExpenseType !== "all") {
+        filteredBreakdown = filteredBreakdown.map(e => {
+          if (e.items && e.items.length > 0) {
+            const matchingItems = e.items.filter(item => item.expenseType === filterExpenseType);
+            if (matchingItems.length > 0) {
+              const newAmount = matchingItems.reduce((s, i) => s + (i.amount || 0), 0);
+              return { ...e, items: matchingItems, amount: newAmount, totalAmount: newAmount };
+            }
+            return null;
+          }
+          return e.expenseType === filterExpenseType ? e : null;
+        }).filter(Boolean);
+      }
+
+      if (filterDate) {
+        const target = new Date(filterDate);
+        filteredBreakdown = filteredBreakdown.filter(e => {
           const ed = new Date(e.date);
           return ed.getFullYear() === target.getFullYear() &&
                  ed.getMonth() === target.getMonth() &&
                  ed.getDate() === target.getDate();
-        })
-      );
-    }
+        });
+      }
 
-    // 3. Sorting
+      // Recalculate group amount based on filtered breakdown
+      const newGroupAmount = filteredBreakdown.reduce((sum, e) => sum + (e.totalAmount !== undefined ? e.totalAmount : (e.amount || 0)), 0);
+
+      return {
+        ...g,
+        breakdown: filteredBreakdown,
+        amount: newGroupAmount
+      };
+    }).filter(g => {
+      // 3. Group-level filtering
+      if (filterVehicle !== "all" && g.vehicleId !== filterVehicle) return false;
+      if (filterDriver !== "all" && g.driverName !== filterDriver) return false;
+      if (filterDealer !== "all") {
+        const parts = g.customerName.split(",").map(p => p.trim());
+        if (!parts.includes(filterDealer)) return false;
+      }
+      
+      // Keep group only if it has matching breakdown items or matches all group filters
+      return g.breakdown.length > 0;
+    });
+
+    // 4. Sorting
     groupedData.sort((a, b) => {
       const aVal = a[sortField];
       const bVal = b[sortField];
@@ -320,39 +343,75 @@ export function ExpensesPage() {
   };
 
   const handleExport = () => {
-    const headers = [
-      "Trip / Shipment ID",
-      "Driver Name",
-      "Vehicle ID",
-      "Total kg per shipment",
-      "Total Expense Amount (INR)",
-      "Date",
-      "Dealer / Customer"
-    ];
+    // Flatten the grouped data to show individual expenses
+    const flattenedRows = [];
+    
+    processedData.forEach((group) => {
+      if (group.breakdown && group.breakdown.length > 0) {
+        group.breakdown.forEach((expense) => {
+          // If the expense has multiple items, flatten those too
+          if (expense.items && expense.items.length > 0) {
+            expense.items.forEach(item => {
+              // Apply filterExpenseType at the item level if needed
+              if (filterExpenseType !== "all" && item.expenseType !== filterExpenseType) return;
+              
+              flattenedRows.push({
+                "Trip / Shipment ID": group.tripId || "No Trip ID",
+                "LR Number": expense.lrNumber || "N/A",
+                "Driver Name": group.driverName || "N/A",
+                "Vehicle ID": group.vehicleId || "N/A",
+                "Expense Type": item.expenseType || "N/A",
+                "Amount (INR)": item.amount || 0,
+                "Description": item.description || expense.description || "N/A",
+                "Payment Mode": expense.paymentMode || "Cash",
+                "Status": expense.status || "Pending",
+                "Date": expense.date ? new Date(expense.date).toLocaleDateString("en-IN") : "N/A",
+                "Dealer / Customer": group.customerName || "N/A",
+                "Total kg per shipment": group.totalWeightKg || 0
+              });
+            });
+          } else {
+            flattenedRows.push({
+              "Trip / Shipment ID": group.tripId || "No Trip ID",
+              "LR Number": expense.lrNumber || "N/A",
+              "Driver Name": group.driverName || "N/A",
+              "Vehicle ID": group.vehicleId || "N/A",
+              "Expense Type": expense.expenseType || "N/A",
+              "Amount (INR)": expense.amount || 0,
+              "Description": expense.description || "N/A",
+              "Payment Mode": expense.paymentMode || "Cash",
+              "Status": expense.status || "Pending",
+              "Date": expense.date ? new Date(expense.date).toLocaleDateString("en-IN") : "N/A",
+              "Dealer / Customer": group.customerName || "N/A",
+              "Total kg per shipment": group.totalWeightKg || 0
+            });
+          }
+        });
+      }
+    });
 
-    const rows = processedData.map((g) => [
-      `"${(g.tripId || "").replace(/"/g, '""')}"`,
-      `"${(g.driverName || "").replace(/"/g, '""')}"`,
-      `"${(g.vehicleId || "").replace(/"/g, '""')}"`,
-      `"${g.totalWeightKg || 0}"`,
-      `"${g.amount || 0}"`,
-      `"${g.date ? new Date(g.date).toLocaleDateString("en-IN") : "N/A"}"`,
-      `"${(g.customerName || "").replace(/"/g, '""')}"`
-    ]);
+      const worksheet = XLSX.utils.json_to_sheet(flattenedRows);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Expenses");
+      
+      // Auto-size columns slightly
+      const wscols = [
+        { wch: 20 }, // Trip ID
+        { wch: 15 }, // LR Number
+        { wch: 20 }, // Driver
+        { wch: 15 }, // Vehicle
+        { wch: 15 }, // Type
+        { wch: 15 }, // Amount
+        { wch: 30 }, // Description
+        { wch: 15 }, // Payment Mode
+        { wch: 15 }, // Status
+        { wch: 15 }, // Date
+        { wch: 25 }, // Customer
+        { wch: 20 }  // Total Kg
+      ];
+      worksheet['!cols'] = wscols;
 
-    const csvContent = [
-      headers.join(","),
-      ...rows.map((r) => r.join(","))
-    ].join("\n");
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `GNXT_Expenses_Export_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+      XLSX.writeFile(workbook, `GNXT_Expenses_Export_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
   const hasActiveFilters =

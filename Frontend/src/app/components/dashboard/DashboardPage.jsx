@@ -6,16 +6,20 @@ import { DashboardStatsGrid } from "./DashboardStatsGrid";
 import { DashboardChart } from "./DashboardChart";
 import { PendingPODsPanel } from "./PendingPODsPanel";
 import { StatDetailView } from "./StatDetailView";
+import { ViewShipmentSheet } from "../shipments/ViewShipmentSheet";
+import { getPODConfig } from "../shipments/utils/shipmentStyles";
 
 // We'll use our API base URL
 const API_BASE_URL = "http://localhost:5000/api";
 
 export function DashboardPage() {
-  const [activeStatView, setActiveStatView] = useState("Active Shipments");
+  const [activeStatView, setActiveStatView] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [podFilter, setPodFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState(undefined);
   const [showHistory, setShowHistory] = useState(true);
+  const [viewSheetOpen, setViewSheetOpen] = useState(false);
+  const [selectedShipment, setSelectedShipment] = useState(null);
 
   // Data states
   const [stats, setStats] = useState([]);
@@ -81,8 +85,10 @@ export function DashboardPage() {
     progress: s.status === "Delivered" ? 100 : (s.status === "In Transit" ? 60 : 10),
     eta: s.deliveryDate ? format(new Date(s.deliveryDate), "MMM d, yyyy h:mm a") : "Pending",
     items: `${s.totalQuantity || 0} Items`,
-    podStatus: s.status === "Delivered" ? "Signed" : "Pending",
-    originalDate: s.dispatchDate || s.createdAt
+    podConfig: getPODConfig(s),
+    podStatus: getPODConfig(s).label,
+    originalDate: s.dispatchDate || s.createdAt,
+    originalData: s
   });
 
   // Filter the current shipments dynamically based on selected card view
@@ -95,8 +101,6 @@ export function DashboardPage() {
     baseData = historicalShipments.filter(s => s.status === "Cancelled");
   } else if (activeStatView === "Deliveries Today") {
     baseData = historicalShipments.filter(s => s.status === "Delivered");
-  } else if (activeStatView === "Vehicles on Trip") {
-    baseData = currentShipments.filter(s => s.status === "In Transit");
   } else if (activeStatView) {
     baseData = showHistory ? historicalShipments : currentShipments;
   }
@@ -124,41 +128,53 @@ export function DashboardPage() {
     return matchesSearch && matchesPod && matchesDate;
   });
 
-  if (activeStatView && !loading) {
-    return (
-      <StatDetailView
-        activeStatView={activeStatView}
-        onBack={() => setActiveStatView(null)}
-        tableData={tableData}
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        podFilter={podFilter}
-        setPodFilter={setPodFilter}
-        dateFilter={dateFilter}
-        setDateFilter={setDateFilter}
-        showHistory={showHistory}
-        setShowHistory={setShowHistory}
-      />
-    );
-  }
-
   return (
-    <div className="p-8 max-w-[1600px] mx-auto space-y-8">
-      <DashboardHeader />
-      {loading ? (
-        <div className="flex justify-center items-center h-64">
-          <p className="text-muted-foreground">Loading dashboard data...</p>
-        </div>
+    <>
+      {activeStatView && !loading ? (
+        <StatDetailView
+          activeStatView={activeStatView}
+          onBack={() => setActiveStatView(null)}
+          tableData={tableData}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          podFilter={podFilter}
+          setPodFilter={setPodFilter}
+          dateFilter={dateFilter}
+          setDateFilter={setDateFilter}
+          showHistory={showHistory}
+          setShowHistory={setShowHistory}
+          onView={(item) => {
+            if (item.originalData) {
+              setSelectedShipment(item.originalData);
+              setViewSheetOpen(true);
+            }
+          }}
+        />
       ) : (
-        <>
-          <DashboardStatsGrid onStatClick={setActiveStatView} stats={stats} />
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-            <DashboardChart weeklyData={weeklyData} />
-            <PendingPODsPanel />
-          </div>
-        </>
+        <div className="p-8 max-w-[1600px] mx-auto space-y-8">
+          <DashboardHeader />
+          {loading ? (
+            <div className="flex justify-center items-center h-64">
+              <p className="text-muted-foreground">Loading dashboard data...</p>
+            </div>
+          ) : (
+            <>
+              <DashboardStatsGrid onStatClick={setActiveStatView} stats={stats} />
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                <DashboardChart weeklyData={weeklyData} />
+                <PendingPODsPanel />
+              </div>
+            </>
+          )}
+        </div>
       )}
-    </div>
+      <ViewShipmentSheet
+        open={viewSheetOpen}
+        onOpenChange={setViewSheetOpen}
+        shipment={selectedShipment}
+        onStatusChange={() => fetchDashboardData()}
+      />
+    </>
   );
 }
 export default DashboardPage;

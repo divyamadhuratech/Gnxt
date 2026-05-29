@@ -45,5 +45,15 @@ export const statusStyles = {
     bg: "bg-blue-50 border-blue-200",
     text: "text-blue-700",
     dot: "bg-blue-500",
-  }
+  },
+  Closed: {
+    bg: "bg-orange-50 border-orange-200",
+    text: "text-orange-700",
+    dot: "bg-orange-400",
+  },
+  Returning: {
+    bg: "bg-orange-50 border-orange-200",
+    text: "text-orange-700",
+    dot: "bg-orange-400",
+  },
 };

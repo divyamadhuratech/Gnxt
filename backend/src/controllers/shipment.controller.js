@@ -287,16 +287,34 @@ export const updateShipmentStatus = async (req, res) => {
     if (!shipment) return res.status(404).json({ success: false, message: "Shipment not found" });
 
     // Free vehicle & driver when returned or cancelled
+    // (only if no other active shipment keeps them busy)
     if (status === "Returned" || status === "Cancelled") {
       const vId = shipment.vehicleId?._id || shipment.vehicleId;
       const dId = shipment.driverId?._id || shipment.driverId;
+
       if (vId) {
-        await Vehicle.findByIdAndUpdate(vId, { availability: "Available", status: "Idle" });
+        const otherActive = await Shipment.findOne({
+          _id: { $ne: shipment._id },
+          vehicleId: vId,
+          status: { $in: ["Pending", "In Transit", "Delivered", "Closed"] },
+        }).lean();
+        if (!otherActive) {
+          await Vehicle.findByIdAndUpdate(vId, { availability: "Available", status: "Idle" });
+        }
       }
+
       if (dId) {
-        await Driver.findByIdAndUpdate(dId, { tripStatus: "Idle", assignedVehicle: null });
+        const otherActive = await Shipment.findOne({
+          _id: { $ne: shipment._id },
+          driverId: dId,
+          status: { $in: ["Pending", "In Transit", "Delivered", "Closed"] },
+        }).lean();
+        if (!otherActive) {
+          await Driver.findByIdAndUpdate(dId, { tripStatus: "Idle", assignedVehicle: null });
+        }
       }
     }
+
 
     // Set vehicle & driver to In Transit when dispatched
     if (status === "In Transit") {
@@ -306,7 +324,7 @@ export const updateShipmentStatus = async (req, res) => {
         await Vehicle.findByIdAndUpdate(vId, { availability: "On Trip", status: "In Transit" });
       }
       if (dId) {
-        await Driver.findByIdAndUpdate(dId, { tripStatus: "In Transit", assignedVehicle: shipment.vehicleNumber });
+        await Driver.findByIdAndUpdate(dId, { tripStatus: "Driving", assignedVehicle: shipment.vehicleNumber });
       }
     }
 
@@ -488,32 +506,47 @@ export const updateShipment = async (req, res) => {
 
 export const deleteShipment = async (req, res) => {
   try {
-    const shipment = await Shipment.findByIdAndDelete(req.params.id);
+    // Fetch first so we have vehicleId / driverId before deletion
+    const shipment = await Shipment.findById(req.params.id).lean();
     if (!shipment) return res.status(404).json({ success: false, message: "Shipment not found" });
 
-    // Free associated vehicle & driver when shipment is deleted
+    await Shipment.findByIdAndDelete(req.params.id);
+
     const vId = shipment.vehicleId?._id || shipment.vehicleId;
     const dId = shipment.driverId?._id || shipment.driverId;
+
+    // Only free vehicle if it has NO other active shipment
     if (vId) {
-      await Vehicle.findByIdAndUpdate(vId, { availability: "Available", status: "Idle" });
+      const otherActive = await Shipment.findOne({
+        _id: { $ne: shipment._id },
+        vehicleId: vId,
+        status: { $in: ["Pending", "In Transit", "Delivered", "Closed"] },
+      }).lean();
+      if (!otherActive) {
+        await Vehicle.findByIdAndUpdate(vId, { availability: "Available", status: "Idle" });
+      }
     }
+
+    // Only free driver if they have NO other active shipment
     if (dId) {
-      await Driver.findByIdAndUpdate(dId, { tripStatus: "Idle", assignedVehicle: null });
+      const otherActive = await Shipment.findOne({
+        _id: { $ne: shipment._id },
+        driverId: dId,
+        status: { $in: ["Pending", "In Transit", "Delivered", "Closed"] },
+      }).lean();
+      if (!otherActive) {
+        await Driver.findByIdAndUpdate(dId, { tripStatus: "Idle", assignedVehicle: null });
+      }
     }
 
     // Revert associated invoices back to Pending
     const allInvoiceIds = shipment.destinations?.reduce((acc, dest) => {
-      if (dest.invoiceIds?.length) {
-        acc.push(...dest.invoiceIds);
-      }
+      if (dest.invoiceIds?.length) acc.push(...dest.invoiceIds);
       return acc;
     }, []) || [];
 
     if (allInvoiceIds.length) {
-      await Invoice.updateMany(
-        { _id: { $in: allInvoiceIds } },
-        { status: "Pending" }
-      );
+      await Invoice.updateMany({ _id: { $in: allInvoiceIds } }, { status: "Pending" });
     }
 
     res.status(200).json({ success: true, message: "Shipment deleted" });
@@ -521,6 +554,7 @@ export const deleteShipment = async (req, res) => {
     res.status(500).json({ success: false, message: "Error deleting shipment", error: err.message });
   }
 };
+
 
 /* ─────────────────────────────────────────────────
    GET /api/shipments/invoices-by-plant/:plantRef
