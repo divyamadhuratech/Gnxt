@@ -39,7 +39,7 @@ const driverSchema = new mongoose.Schema(
     },
     tripStatus: {
       type: String,
-      enum: ["Driving", "Idle", "Assigned"],
+      enum: ["Driving", "Idle", "Assigned", "In Transit"],
       default: "Idle",
     },
     assignedVehicle: {

@@ -4,10 +4,10 @@ import { Sheet, SheetContent, SheetTitle, SheetDescription } from "../ui/sheet";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
-import { Calendar, User, Car, Download, X, Search, CheckSquare, Square, Trash2 } from "lucide-react";
+import { Calendar, User, Car, Download, X, Search, CheckSquare, Square, Trash2, Eye } from "lucide-react";
 import { Badge } from "../ui/badge";
 
-export function HistoryShipmentSheet({ open, onOpenChange, historyShipments = [], onDeleted }) {
+export function HistoryShipmentSheet({ open, onOpenChange, historyShipments = [], setSelectedShipment, setViewSheetOpen, onDeleted }) {
   const [dealerSearch, setDealerSearch] = useState("");
   const [vehicleSearch, setVehicleSearch] = useState("");
   const [dateSearch, setDateSearch] = useState("");
@@ -17,15 +17,15 @@ export function HistoryShipmentSheet({ open, onOpenChange, historyShipments = []
   const filtered = useMemo(() => {
     return historyShipments.filter((s) => {
       const dest = s.destinations?.[0] || {};
-      
+
       // 1. Dealer Filter (Customer Name)
-      const matchesDealer = !dealerSearch || 
+      const matchesDealer = !dealerSearch ||
         (dest.customerName && dest.customerName.toLowerCase().includes(dealerSearch.toLowerCase()));
-        
+
       // 2. Vehicle Filter
-      const matchesVehicle = !vehicleSearch || 
+      const matchesVehicle = !vehicleSearch ||
         (s.vehicleNumber && s.vehicleNumber.toLowerCase().includes(vehicleSearch.toLowerCase()));
-        
+
       // 3. Date Filter (matches created date or delivery date)
       let matchesDate = true;
       if (dateSearch) {
@@ -34,14 +34,14 @@ export function HistoryShipmentSheet({ open, onOpenChange, historyShipments = []
         const deliveryDateStr = s.deliveryDate ? new Date(s.deliveryDate).toDateString() : "";
         matchesDate = (searchDateStr === createdDateStr) || (searchDateStr === deliveryDateStr);
       }
-      
+
       return matchesDealer && matchesVehicle && matchesDate;
     });
   }, [historyShipments, dealerSearch, vehicleSearch, dateSearch]);
 
   // Handle selection logic
   const handleToggleSelect = (id) => {
-    setSelectedIds((prev) => 
+    setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
   };
@@ -49,7 +49,7 @@ export function HistoryShipmentSheet({ open, onOpenChange, historyShipments = []
   const handleToggleSelectAll = () => {
     const allFilteredIds = filtered.map((s) => s._id);
     const allSelected = allFilteredIds.length > 0 && allFilteredIds.every((id) => selectedIds.includes(id));
-    
+
     if (allSelected) {
       setSelectedIds((prev) => prev.filter((id) => !allFilteredIds.includes(id)));
     } else {
@@ -62,35 +62,58 @@ export function HistoryShipmentSheet({ open, onOpenChange, historyShipments = []
   // Export to Excel using xlsx
   const handleExport = () => {
     const selectedData = historyShipments.filter((s) => selectedIds.includes(s._id));
-    
+
     if (!selectedData.length) {
       alert("Please select at least one shipment from the list to export.");
       return;
     }
-    
-    // Map data to clean Excel rows
-    const rows = selectedData.map((s) => {
-      const dest = s.destinations?.[0] || {};
-      return {
-        "LR Number": dest.lrNumber || "—",
-        "Plant Number": dest.plantReferenceNumber || "—",
-        "Shipment ID": s.shipmentId || "—",
-        "Dealer Name": dest.customerName || "—",
-        "Location": dest.deliveryLocation || "—",
-        "Total Items": s.totalQuantity || 0,
-        "Weight (kg)": s.totalWeightKg || 0,
-        "Driver Info": `${s.driverName || "—"} (${s.driverPhone || ""})`,
-        "Vehicle Info": s.vehicleNumber || "—",
-        "Status": s.status || "—",
-        "Created Date": s.createdAt ? new Date(s.createdAt).toLocaleDateString("en-IN") : "—",
-        "Delivery Date": s.deliveryDate ? new Date(s.deliveryDate).toLocaleDateString("en-IN") : "—",
-      };
+
+    // Map data to clean Excel rows for all destinations of the selected shipments
+    const rows = selectedData.flatMap((s) => {
+      const destinations = s.destinations || [];
+      if (destinations.length === 0) {
+        return [
+          {
+            "LR Number": "—",
+            "Plant Number": "—",
+            "Shipment ID": s.shipmentId || "—",
+            "Dealer Name": "—",
+            "Location": "—",
+            "Destination Qty": 0,
+            "Destination Weight (kg)": 0,
+            "Driver Name": s.driverName || "—",
+            "Driver Phone": s.driverPhone || "",
+            "Vehicle Info": s.vehicleNumber || "—",
+            "Status": s.status === "Closed" || s.status === "Returned" ? "Delivered" : (s.status || "—"),
+            "Created Date": s.createdAt ? new Date(s.createdAt).toLocaleDateString("en-IN") : "—",
+            "Delivery Date": s.deliveryDate ? new Date(s.deliveryDate).toLocaleDateString("en-IN") : "—",
+          }
+        ];
+      }
+      return destinations.map((dest) => {
+        const destQty = dest.totalQuantity || (dest.totalTyres || 0) + (dest.totalTubes || 0) + (dest.totalFlaps || 0);
+        return {
+          "LR Number": dest.lrNumber || "—",
+          "Plant Number": dest.plantReferenceNumber || "—",
+          "Shipment ID": s.shipmentId || "—",
+          "Dealer Name": dest.customerName || "—",
+          "Location": dest.deliveryLocation || "—",
+          "Destination Qty": destQty,
+          "Destination Weight (kg)": dest.weightKg || 0,
+          "Driver Name": s.driverName || "—",
+          "Driver Phone": s.driverPhone || "",
+          "Vehicle Info": s.vehicleNumber || "—",
+          "Status": s.status === "Closed" || s.status === "Returned" ? "Delivered" : (s.status || "—"),
+          "Created Date": s.createdAt ? new Date(s.createdAt).toLocaleDateString("en-IN") : "—",
+          "Delivery Date": s.deliveryDate ? new Date(s.deliveryDate).toLocaleDateString("en-IN") : "—",
+        };
+      });
     });
 
     const worksheet = XLSX.utils.json_to_sheet(rows);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Shipment History");
-    
+
     // Set column widths beautifully
     const maxLens = {};
     rows.forEach(row => {
@@ -106,7 +129,7 @@ export function HistoryShipmentSheet({ open, onOpenChange, historyShipments = []
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-5xl overflow-y-auto flex flex-col h-full bg-slate-50/50 p-6">
+      <SheetContent className="sm:max-w-5xl overflow-y-auto flex flex-col h-full bg-white p-6">
         {/* Header Section */}
         <div className="flex items-center justify-between border-b border-border pb-4 mb-5 shrink-0 bg-white -mx-6 -mt-6 px-6 pt-6 shadow-sm">
           <div>
@@ -207,7 +230,8 @@ export function HistoryShipmentSheet({ open, onOpenChange, historyShipments = []
                   <TableHead className="w-[150px]">Vehicle & Driver</TableHead>
                   <TableHead className="w-[110px]">Items / Wt</TableHead>
                   <TableHead className="w-[110px]">Delivery Date</TableHead>
-                  <TableHead className="w-[90px] pr-4">Status</TableHead>
+                  <TableHead className="w-[90px]">Status</TableHead>
+                  <TableHead className="w-[80px] pr-4 text-right">View</TableHead>
                 </TableRow>
               </TableHeader>
 
@@ -216,7 +240,7 @@ export function HistoryShipmentSheet({ open, onOpenChange, historyShipments = []
                   const dest = s.destinations?.[0] || {};
                   const isSelected = selectedIds.includes(s._id);
                   const plantNumbers = (dest.plantReferenceNumber || "").split(",").map(p => p.trim()).filter(Boolean);
-                  
+
                   return (
                     <TableRow key={s._id} className={`hover:bg-muted/10 transition-colors ${isSelected ? "bg-blue-50/20" : ""}`}>
                       {/* Checkbox */}
@@ -289,23 +313,38 @@ export function HistoryShipmentSheet({ open, onOpenChange, historyShipments = []
 
                       {/* Date */}
                       <TableCell className="text-[11px] text-slate-500 font-medium">
-                        {s.deliveryDate 
+                        {s.deliveryDate
                           ? new Date(s.deliveryDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
                           : (s.createdAt ? new Date(s.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—")}
                       </TableCell>
 
                       {/* Status */}
-                      <TableCell className="pr-4">
+                      <TableCell>
                         <Badge
                           variant="outline"
                           className={
-                            s.status === "Delivered"
+                            (s.status === "Delivered" || s.status === "Closed" || s.status === "Returned")
                               ? "bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px]"
                               : "bg-red-50 text-red-700 border-red-200 text-[10px]"
                           }
                         >
-                          {s.status}
+                          {(s.status === "Closed" || s.status === "Returned") ? "Delivered" : s.status}
                         </Badge>
+                      </TableCell>
+
+                      {/* View Action Column */}
+                      <TableCell className="pr-4 text-right">
+                        <button
+                          className="w-8 h-8 rounded-md flex items-center justify-center hover:bg-slate-100 transition-colors text-slate-500 hover:text-foreground inline-flex cursor-pointer"
+                          onClick={() => {
+                            setSelectedShipment(s);
+                            setViewSheetOpen(true);
+                            onOpenChange(false);
+                          }}
+                          title="View Details"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
                       </TableCell>
                     </TableRow>
                   );
@@ -313,7 +352,7 @@ export function HistoryShipmentSheet({ open, onOpenChange, historyShipments = []
 
                 {filtered.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={9} className="h-48 text-center text-muted-foreground bg-slate-50/10">
+                    <TableCell colSpan={10} className="h-48 text-center text-muted-foreground bg-slate-50/10">
                       <div className="flex flex-col items-center justify-center gap-2 py-8">
                         <Search className="w-8 h-8 text-slate-300" />
                         <p className="text-sm font-semibold">No delivered shipments match your filters</p>

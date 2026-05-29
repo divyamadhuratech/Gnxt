@@ -15,6 +15,8 @@ export function ShipmentFiltersBar({
   onStatusFilterChange,
   dateFilter,
   onDateFilterChange,
+  podFilter,
+  onPodFilterChange,
   statusCounts,
   totalShipments,
 }) {
@@ -59,6 +61,22 @@ export function ShipmentFiltersBar({
           <SelectItem value="today">Today</SelectItem>
           <SelectItem value="week">This Week</SelectItem>
           <SelectItem value="month">This Month</SelectItem>
+        </SelectContent>
+      </Select>
+
+      <Select value={podFilter} onValueChange={onPodFilterChange}>
+        <SelectTrigger className="w-[160px] h-9 bg-white border-border">
+          <div className="flex items-center gap-2">
+            <Filter className="w-3.5 h-3.5 text-muted-foreground" />
+            <SelectValue placeholder="All POD" />
+          </div>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All POD</SelectItem>
+          <SelectItem value="Not Generated">Not Generated</SelectItem>
+          <SelectItem value="Pending">Pending</SelectItem>
+          <SelectItem value="Partial">Partial</SelectItem>
+          <SelectItem value="Signed">Signed</SelectItem>
         </SelectContent>
       </Select>
 

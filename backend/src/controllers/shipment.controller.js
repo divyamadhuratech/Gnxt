@@ -92,8 +92,8 @@ export const createShipment = async (req, res) => {
       );
     }
 
-    // Mark vehicle as Assigned
-    await Vehicle.findByIdAndUpdate(vehicleId, { availability: "Assigned", status: "Assigned" });
+    // Mark vehicle as Scheduled / Assigned
+    await Vehicle.findByIdAndUpdate(vehicleId, { availability: "Scheduled", status: "Assigned" });
     // Mark driver as Assigned
     await Driver.findByIdAndUpdate(driverId, { tripStatus: "Assigned", assignedVehicle: vehicle.vehicleNo });
 
@@ -251,8 +251,9 @@ export const updateShipmentStatus = async (req, res) => {
         if (status === "Delivered") {
           targetInvoiceStatus = "Delivered";
         }
+        const rawInvoiceIds = dest.invoiceIds.map(inv => inv?._id || inv);
         await Invoice.updateMany(
-          { _id: { $in: dest.invoiceIds } },
+          { _id: { $in: rawInvoiceIds } },
           { status: targetInvoiceStatus }
         );
       }
@@ -287,20 +288,32 @@ export const updateShipmentStatus = async (req, res) => {
 
     // Free vehicle & driver when returned or cancelled
     if (status === "Returned" || status === "Cancelled") {
-      await Vehicle.findByIdAndUpdate(shipment.vehicleId, { availability: "Available", status: "Idle" });
-      await Driver.findByIdAndUpdate(shipment.driverId, { tripStatus: "Idle", assignedVehicle: null });
+      const vId = shipment.vehicleId?._id || shipment.vehicleId;
+      const dId = shipment.driverId?._id || shipment.driverId;
+      if (vId) {
+        await Vehicle.findByIdAndUpdate(vId, { availability: "Available", status: "Idle" });
+      }
+      if (dId) {
+        await Driver.findByIdAndUpdate(dId, { tripStatus: "Idle", assignedVehicle: null });
+      }
     }
 
     // Set vehicle & driver to In Transit when dispatched
     if (status === "In Transit") {
-      await Vehicle.findByIdAndUpdate(shipment.vehicleId, { availability: "On Trip", status: "In Transit" });
-      await Driver.findByIdAndUpdate(shipment.driverId, { tripStatus: "In Transit", assignedVehicle: shipment.vehicleNumber });
+      const vId = shipment.vehicleId?._id || shipment.vehicleId;
+      const dId = shipment.driverId?._id || shipment.driverId;
+      if (vId) {
+        await Vehicle.findByIdAndUpdate(vId, { availability: "On Trip", status: "In Transit" });
+      }
+      if (dId) {
+        await Driver.findByIdAndUpdate(dId, { tripStatus: "In Transit", assignedVehicle: shipment.vehicleNumber });
+      }
     }
 
     // Sync invoice statuses
     const allInvoiceIds = shipment.destinations?.reduce((acc, dest) => {
       if (dest.invoiceIds?.length) {
-        acc.push(...dest.invoiceIds);
+        acc.push(...dest.invoiceIds.map(inv => inv?._id || inv));
       }
       return acc;
     }, []) || [];
@@ -478,6 +491,16 @@ export const deleteShipment = async (req, res) => {
     const shipment = await Shipment.findByIdAndDelete(req.params.id);
     if (!shipment) return res.status(404).json({ success: false, message: "Shipment not found" });
 
+    // Free associated vehicle & driver when shipment is deleted
+    const vId = shipment.vehicleId?._id || shipment.vehicleId;
+    const dId = shipment.driverId?._id || shipment.driverId;
+    if (vId) {
+      await Vehicle.findByIdAndUpdate(vId, { availability: "Available", status: "Idle" });
+    }
+    if (dId) {
+      await Driver.findByIdAndUpdate(dId, { tripStatus: "Idle", assignedVehicle: null });
+    }
+
     // Revert associated invoices back to Pending
     const allInvoiceIds = shipment.destinations?.reduce((acc, dest) => {
       if (dest.invoiceIds?.length) {
@@ -509,7 +532,7 @@ export const getInvoicesByPlant = async (req, res) => {
       plantReferenceNumber: req.params.plantRef,
       status: { $in: ["Pending"] },
     })
-      .select("invoiceNumber invoiceDate status location customerName")
+      .select("invoiceNumber invoiceDate status location customerName plantReferenceNumber")
       .sort({ invoiceDate: -1 })
       .lean();
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Building2, Package, Hash, Weight, Layers, FileText, Trash2 } from "lucide-react";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
@@ -19,12 +19,16 @@ export function DestinationEntry({
   usedPlantNumbers = [], // plant numbers already selected in other entries
   onAddRelatedPlant,
   onRemoveRelatedPlant,
+  isEditMode = false,
+  initialInvoices = [], // array of populated invoice objects
 }) {
+  const activePlants = [entry.plantReferenceNumber, ...(entry.additionalPlants || [])].filter(Boolean);
   const [plantNumbers, setPlantNumbers] = useState([]);
   const [invoices, setInvoices]         = useState([]);
   const [relatedPlants, setRelatedPlants] = useState([]);
   const [loadingPlants, setLoadingPlants]   = useState(false);
   const [loadingInvoices, setLoadingInvoices] = useState(false);
+  const prevPlantsRef = useRef([]);
 
   // Fetch plant numbers on mount
   useEffect(() => {
@@ -38,13 +42,17 @@ export function DestinationEntry({
 
   // Fetch invoices when plant or additional plants change — also auto-fill customerName + location
   useEffect(() => {
-    const plants = [entry.plantReferenceNumber, ...(entry.additionalPlants || [])].filter(Boolean);
-    if (plants.length === 0) { setInvoices([]); return; }
+    const currentPlants = [entry.plantReferenceNumber, ...(entry.additionalPlants || [])].filter(Boolean);
+    if (currentPlants.length === 0) {
+      setInvoices([]);
+      prevPlantsRef.current = [];
+      return;
+    }
 
     setLoadingInvoices(true);
 
     Promise.all(
-      plants.map((plant) =>
+      currentPlants.map((plant) =>
         fetch(`${API_BASE_URL}/shipments/invoices-by-plant/${encodeURIComponent(plant)}`)
           .then((r) => r.json())
           .then((res) => (res.success ? res.data : []))
@@ -77,6 +85,45 @@ export function DestinationEntry({
       .catch(() => setInvoices([]))
       .finally(() => setLoadingInvoices(false));
   }, [entry.plantReferenceNumber, entry.additionalPlants]);
+
+  // Automatically synchronize invoiceIds with the active plants' invoices
+  useEffect(() => {
+    const currentPlants = [entry.plantReferenceNumber, ...(entry.additionalPlants || [])].filter(Boolean);
+    if (currentPlants.length === 0) {
+      if (entry.invoiceIds?.length > 0) {
+        onUpdate(entry.id, "invoiceIds", []);
+      }
+      return;
+    }
+
+    // Combine originally assigned invoices with newly fetched pending invoices
+    // Filter out duplicates by _id
+    const combinedInvoicesMap = new Map();
+    [...(initialInvoices || []), ...invoices].forEach((inv) => {
+      if (inv && inv._id) {
+        combinedInvoicesMap.set(inv._id.toString(), inv);
+      }
+    });
+
+    const combinedInvoices = Array.from(combinedInvoicesMap.values());
+
+    // Filter to only keep invoices belonging to active plants
+    const activeInvoices = combinedInvoices.filter(
+      (inv) => inv.plantReferenceNumber && currentPlants.includes(inv.plantReferenceNumber.toString())
+    );
+
+    const activeIds = activeInvoices.map((inv) => inv._id.toString());
+    const currentSelected = (entry.invoiceIds || []).map((id) => id.toString());
+
+    // Check if they are different
+    const different =
+      activeIds.length !== currentSelected.length ||
+      !activeIds.every((id) => currentSelected.includes(id));
+
+    if (different) {
+      onUpdate(entry.id, "invoiceIds", activeIds);
+    }
+  }, [entry.plantReferenceNumber, entry.additionalPlants, invoices, initialInvoices, entry.invoiceIds]);
 
   // Fetch related plants when primary plant changes
   useEffect(() => {
@@ -205,62 +252,93 @@ export function DestinationEntry({
             </div>
           )}
 
-          {/* Associated Invoices — show only date + invoice number */}
+          {/* Selected Plants & Invoices */}
           {entry.plantReferenceNumber && (
             <div className="space-y-2">
               <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
-                <FileText className="w-3 h-3" /> Associated Invoices
+                <Building2 className="w-3 h-3 text-[#1d4ed8]" /> Selected Plants & Invoices
               </Label>
-              <div className="bg-white border border-border rounded-lg p-3 space-y-2 max-h-48 overflow-y-auto">
+              <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
                 {loadingInvoices ? (
-                  <p className="text-xs text-muted-foreground text-center py-2">Loading invoices...</p>
-                ) : invoices.length === 0 ? (
-                  <p className="text-xs text-muted-foreground text-center py-2">No pending invoices for this plant</p>
+                  <div className="bg-white border border-border rounded-xl p-4 text-center">
+                    <p className="text-xs text-muted-foreground py-2">Loading plant details & invoices...</p>
+                  </div>
+                ) : activePlants.length === 0 ? (
+                  <div className="bg-white border border-border rounded-xl p-4 text-center">
+                    <p className="text-xs text-muted-foreground py-2">No plants selected</p>
+                  </div>
                 ) : (
-                  invoices.map((inv) => {
-                    const isSelected = (entry.invoiceIds || []).includes(inv._id);
+                  activePlants.map((plant) => {
+                    const plantInvoices = [...(initialInvoices || []), ...invoices].filter(
+                      (inv) => inv && inv.plantReferenceNumber && inv.plantReferenceNumber.toString() === plant.toString()
+                    );
+                    
+                    // Filter duplicates by _id
+                    const uniqueInvoicesMap = new Map();
+                    plantInvoices.forEach((inv) => {
+                      if (inv && inv._id) {
+                        uniqueInvoicesMap.set(inv._id.toString(), inv);
+                      }
+                    });
+                    const uniqueInvoices = Array.from(uniqueInvoicesMap.values());
+                    
+                    const firstInv = uniqueInvoices[0];
+                    const location = firstInv?.location || "";
+                    const customerName = firstInv?.customerName || "";
+
                     return (
                       <div
-                        key={inv._id}
-                        onClick={() => {
-                          const current = entry.invoiceIds || [];
-                          const updated = isSelected
-                            ? current.filter((id) => id !== inv._id)
-                            : [...current, inv._id];
-                          onUpdate(entry.id, "invoiceIds", updated);
-                          // Auto-fill delivery location from first selected invoice
-                          if (!isSelected && inv.location && !entry.deliveryLocation) {
-                            onUpdate(entry.id, "deliveryLocation", inv.location);
-                          }
-                        }}
-                        className={`flex items-center justify-between px-3 py-2 rounded-lg border cursor-pointer transition-colors ${
-                          isSelected
-                            ? "border-[#1d4ed8] bg-[#f0f4ff]"
-                            : "border-border hover:border-muted-foreground/30 hover:bg-muted/30"
-                        }`}
+                        key={plant}
+                        className="bg-white border border-[#c7d7fe] hover:border-[#a3b8cc] rounded-xl p-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all"
                       >
-                        <div className="flex flex-col gap-0.5">
-                          <span className={`text-sm font-medium ${isSelected ? "text-[#1d4ed8]" : "text-foreground"}`}>
-                            {inv.invoiceNumber}
-                          </span>
-                          {inv.location && (
-                            <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                              📍 {inv.location}
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-semibold text-[#1d4ed8] tracking-tight flex items-center gap-1">
+                              <Building2 className="w-3.5 h-3.5 text-[#1d4ed8]" /> Plant: {plant}
                             </span>
+                            <Badge className="bg-[#f0fdf4] text-[#166534] border border-[#bbf7d0] text-[9px] font-medium px-2 py-0.5 rounded-full">
+                              Included
+                            </Badge>
+                          </div>
+                          {customerName && (
+                            <p className="text-xs text-slate-700 font-medium">{customerName}</p>
+                          )}
+                          {location && (
+                            <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                              📍 {location}
+                            </p>
                           )}
                         </div>
-                        <span className="text-xs text-muted-foreground shrink-0">
-                          {inv.invoiceDate
-                            ? format(new Date(inv.invoiceDate), "dd MMM yyyy")
-                            : "—"}
-                        </span>
+
+                        <div className="sm:text-right space-y-1 shrink-0">
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
+                            Associated Invoices ({uniqueInvoices.length})
+                          </p>
+                          {uniqueInvoices.length === 0 ? (
+                            <p className="text-xs text-amber-500 font-medium">No pending invoices</p>
+                          ) : (
+                            <div className="flex flex-wrap gap-1 sm:justify-end max-w-xs">
+                              {uniqueInvoices.map((inv) => (
+                                <Badge
+                                  key={inv._id}
+                                  variant="outline"
+                                  className="text-[10px] px-2 py-0.5 border-slate-200 bg-slate-50 text-slate-700 font-semibold"
+                                >
+                                  {inv.invoiceNumber}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     );
                   })
                 )}
               </div>
-              {(entry.invoiceIds?.length > 0) && (
-                <p className="text-[11px] text-[#1d4ed8]">{entry.invoiceIds.length} invoice{entry.invoiceIds.length > 1 ? "s" : ""} selected</p>
+              {!loadingInvoices && invoices.length > 0 && (
+                <p className="text-[11px] text-[#16a34a] font-medium flex items-center gap-1">
+                  ✓ {invoices.length} invoice{invoices.length > 1 ? "s" : ""} from {activePlants.length} plant{activePlants.length > 1 ? "s" : ""} automatically included under this destination
+                </p>
               )}
             </div>
           )}

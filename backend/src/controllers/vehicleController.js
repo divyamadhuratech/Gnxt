@@ -1,4 +1,5 @@
 import Vehicle from "../models/Vehicle.js";
+import Shipment from "../models/shipment.model.js";
 
 // Get all vehicles
 export const getAllVehicles = async (req, res) => {
@@ -115,7 +116,23 @@ export const updateVehicle = async (req, res) => {
       if (status === "Maintenance" || status === "Breakdown") {
         vehicle.availability = "Unavailable";
       } else if (status === "Idle") {
-        vehicle.availability = "Available";
+        // Check if there is an active shipment for this vehicle
+        const activeShipment = await Shipment.findOne({
+          vehicleId: vehicle._id,
+          status: { $in: ["Pending", "In Transit"] }
+        }).sort({ updatedAt: -1 });
+
+        if (activeShipment) {
+          if (activeShipment.status === "In Transit") {
+            vehicle.status = "In Transit";
+            vehicle.availability = "On Trip";
+          } else {
+            vehicle.status = "Assigned";
+            vehicle.availability = "Scheduled";
+          }
+        } else {
+          vehicle.availability = "Available";
+        }
       }
     }
     if (availability && !status) vehicle.availability = availability; // Allow manual override if no status change
@@ -164,7 +181,23 @@ export const updateVehicleStatus = async (req, res) => {
     if (status === "Maintenance" || status === "Breakdown") {
       updateData.availability = "Unavailable";
     } else if (status === "Idle") {
-      updateData.availability = "Available";
+      // Check if there is an active shipment for this vehicle
+      const activeShipment = await Shipment.findOne({
+        vehicleId: id,
+        status: { $in: ["Pending", "In Transit"] }
+      }).sort({ updatedAt: -1 });
+
+      if (activeShipment) {
+        if (activeShipment.status === "In Transit") {
+          updateData.status = "In Transit";
+          updateData.availability = "On Trip";
+        } else {
+          updateData.status = "Assigned";
+          updateData.availability = "Scheduled";
+        }
+      } else {
+        updateData.availability = "Available";
+      }
     }
 
     const vehicle = await Vehicle.findByIdAndUpdate(

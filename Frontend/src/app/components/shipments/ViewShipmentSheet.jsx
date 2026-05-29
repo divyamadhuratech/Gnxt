@@ -2,59 +2,62 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { FileText, Download, Edit, XCircle, Phone, CheckCircle2, X, Loader2, Wifi, WifiOff } from "lucide-react";
 import { Button } from "../ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "../ui/sheet";
-import { ShipmentOverview }     from "./view/ShipmentOverview";
-import { PODSection }           from "./view/PODSection";
+import { ShipmentOverview } from "./view/ShipmentOverview";
+import { PODSection } from "./view/PODSection";
 import { VehicleDriverDetails } from "./view/VehicleDriverDetails";
-import { ItemsBreakdown }       from "./view/ItemsBreakdown";
-import { ShipmentTimeline }     from "./view/ShipmentTimeline";
+import { ItemsBreakdown } from "./view/ItemsBreakdown";
+import { ShipmentTimeline } from "./view/ShipmentTimeline";
 
 const API_BASE_URL = import.meta.env?.VITE_API_URL || "http://localhost:5000/api";
-const GPS_POLL_MS  = 10_000; // refresh GPS every 10 s while sheet is open
+const GPS_POLL_MS = 10_000; // refresh GPS every 10 s while sheet is open
 
 const statusConfig = {
-  Pending:      { className: "bg-amber-50 text-amber-700 border-amber-200",       dotColor: "bg-amber-500"   },
-  "In Transit": { className: "bg-blue-50 text-blue-700 border-blue-200",          dotColor: "bg-blue-500"    },
-  Delivered:    { className: "bg-emerald-50 text-emerald-700 border-emerald-200", dotColor: "bg-emerald-500" },
-  Cancelled:    { className: "bg-red-50 text-red-700 border-red-200",             dotColor: "bg-red-500"     },
-  Closed:       { className: "bg-slate-100 text-slate-800 border-slate-300",      dotColor: "bg-slate-500"   },
+  Pending: { className: "bg-amber-50 text-amber-700 border-amber-200", dotColor: "bg-amber-500" },
+  "In Transit": { className: "bg-blue-50 text-blue-700 border-blue-200", dotColor: "bg-blue-500" },
+  Delivered: { className: "bg-emerald-50 text-emerald-700 border-emerald-200", dotColor: "bg-emerald-500" },
+  Cancelled: { className: "bg-red-50 text-red-700 border-red-200", dotColor: "bg-red-500" },
+  Closed: { className: "bg-slate-100 text-slate-800 border-slate-300", dotColor: "bg-slate-500" },
+  Returned: { className: "bg-slate-100 text-slate-700 border-slate-300", dotColor: "bg-slate-500" },
 };
 
 /* ── Build detail object from real shipment data ── */
 function buildDetail(s, liveGps) {
   if (!s) return null;
 
-  const vehicleObj      = s.vehicleId && typeof s.vehicleId === "object" ? s.vehicleId : null;
+  const vehicleObj = s.vehicleId && typeof s.vehicleId === "object" ? s.vehicleId : null;
   const vehicleCapacity = vehicleObj?.capacityKg ?? s.vehicleCapacityKg ?? 0;
-  const vehicleType     = vehicleObj?.type        ?? "—";
-  const vehicleModel    = vehicleObj?.model        ?? "";
+  const vehicleType = vehicleObj?.type ?? "—";
+  const vehicleModel = vehicleObj?.model ?? "";
 
-  const driverObj     = s.driverId && typeof s.driverId === "object" ? s.driverId : null;
+  const driverObj = s.driverId && typeof s.driverId === "object" ? s.driverId : null;
   const driverLicense = driverObj?.licenseNumber ?? "—";
-  const driverType    = driverObj?.driverType    ?? "—";
+  const driverType = driverObj?.driverType ?? "—";
 
   const fmt = (d) =>
     d ? new Date(d).toLocaleString("en-IN", {
-          day: "2-digit", month: "short", year: "numeric",
-          hour: "2-digit", minute: "2-digit",
-        })
+      day: "2-digit", month: "short", year: "numeric",
+      hour: "2-digit", minute: "2-digit",
+    })
       : "—";
 
-  const dispatchDate      = fmt(s.dispatchDate);
+  const dispatchDate = fmt(s.dispatchDate);
   const estimatedDelivery = fmt(s.deliveryDate) !== "—" ? fmt(s.deliveryDate) : "—";
-  const created           = fmt(s.createdAt);
-  const dispatched        = fmt(s.dispatchDate);
-  const delivered         = fmt(s.deliveryDate);
+  const created = fmt(s.createdAt);
+  const dispatched = fmt(s.dispatchDate);
+  const delivered = fmt(s.deliveryDate);
+  const returned = fmt(s.returnedDate);
 
-  const isDelivered = s.status === "Delivered" || s.status === "Closed";
+  const isDelivered = s.status === "Delivered" || s.status === "Returned" || s.status === "Closed";
   const isInTransit = s.status === "In Transit";
-  const isPending   = s.status === "Pending";
+  const isPending = s.status === "Pending";
 
   const timeline = [
-    { step: "Shipment Created",   timestamp: created,    completed: true,                    active: isPending && !s.dispatchDate },
+    { step: "Shipment Created", timestamp: created, completed: true, active: isPending && !s.dispatchDate },
     { step: "Assigned to Driver", timestamp: s.driverName ? created : "—", completed: !!s.driverName, active: false },
-    { step: "Dispatched",         timestamp: dispatched, completed: !!s.dispatchDate,        active: false },
-    { step: "In Transit",         timestamp: dispatched !== "—" ? dispatched : "—", completed: isInTransit || isDelivered, active: isInTransit },
-    { step: "Delivered",          timestamp: delivered,  completed: isDelivered,             active: false },
+    { step: "Dispatched", timestamp: dispatched, completed: !!s.dispatchDate, active: false },
+    { step: "In Transit", timestamp: dispatched !== "—" ? dispatched : "—", completed: isInTransit || isDelivered, active: isInTransit },
+    { step: "Delivered", timestamp: delivered, completed: isDelivered, active: false },
+    { step: "Returned", timestamp: returned, completed: s.status === "Returned", active: false },
   ];
 
   const items = (s.destinations ?? []).flatMap((dest) => {
@@ -70,40 +73,40 @@ function buildDetail(s, liveGps) {
   if (liveGps) {
     const fixAge = liveGps.fixTime
       ? new Date(liveGps.fixTime).toLocaleString("en-IN", {
-          day: "2-digit", month: "short", year: "numeric",
-          hour: "2-digit", minute: "2-digit", second: "2-digit",
-        })
+        day: "2-digit", month: "short", year: "numeric",
+        hour: "2-digit", minute: "2-digit", second: "2-digit",
+      })
       : "—";
 
     tracking = {
-      isLive:          true,
+      isLive: true,
       // raw numbers for the map
-      rawLat:          liveGps.lat,
-      rawLng:          liveGps.lng,
-      rawSpeed:        liveGps.speed,
-      fixTime:         liveGps.fixTime,
+      rawLat: liveGps.lat,
+      rawLng: liveGps.lng,
+      rawSpeed: liveGps.speed,
+      fixTime: liveGps.fixTime,
       // display strings for the panel
       currentLocation: `${liveGps.lat?.toFixed(5)}° N, ${liveGps.lng?.toFixed(5)}° E`,
-      lastUpdated:     fixAge,
-      speed:           `${(liveGps.speed ?? 0).toFixed(1)} km/h`,
+      lastUpdated: fixAge,
+      speed: `${(liveGps.speed ?? 0).toFixed(1)} km/h`,
       remainingDistance: 0,
-      eta:             liveGps.vehicleStatus === "Moving" ? "In transit" : "Stopped",
+      eta: liveGps.vehicleStatus === "Moving" ? "In transit" : "Stopped",
       // extra GPS fields for the badge
-      satellites:      liveGps.satellites,
-      accuracy:        liveGps.acc,
-      heading:         liveGps.heading,
-      altitude:        liveGps.altitude,
-      vehicleStatus:   liveGps.vehicleStatus,
-      deviceId:        liveGps.deviceId,
+      satellites: liveGps.satellites,
+      accuracy: liveGps.acc,
+      heading: liveGps.heading,
+      altitude: liveGps.altitude,
+      vehicleStatus: liveGps.vehicleStatus,
+      deviceId: liveGps.deviceId,
     };
   } else {
     tracking = {
-      isLive:          false,
+      isLive: false,
       currentLocation: isDelivered ? (s.destinations?.[0]?.deliveryLocation || "Delivered") : isInTransit ? "En route" : "—",
-      lastUpdated:     isDelivered ? delivered : isInTransit ? dispatched : "—",
-      speed:           "—",
+      lastUpdated: isDelivered ? delivered : isInTransit ? dispatched : "—",
+      speed: "—",
       remainingDistance: 0,
-      eta:             isDelivered ? "Delivered" : "—",
+      eta: isDelivered ? "Delivered" : "—",
     };
   }
 
@@ -117,11 +120,11 @@ function buildDetail(s, liveGps) {
 }
 
 export function ViewShipmentSheet({ open, onOpenChange, shipment, onStatusChange, onEdit }) {
-  const [podViewImage, setPodViewImage]       = useState(null);
-  const [fullShipment, setFullShipment]       = useState(null);
-  const [loadingDetail, setLoadingDetail]     = useState(false);
-  const [liveGps, setLiveGps]                 = useState(null);
-  const [gpsError, setGpsError]               = useState(null);
+  const [podViewImage, setPodViewImage] = useState(null);
+  const [fullShipment, setFullShipment] = useState(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [liveGps, setLiveGps] = useState(null);
+  const [gpsError, setGpsError] = useState(null);
   const gpsIntervalRef = useRef(null);
 
   /* ── Fetch shipment detail ── */
@@ -150,7 +153,7 @@ export function ViewShipmentSheet({ open, onOpenChange, shipment, onStatusChange
   const fetchGps = useCallback(async (vehicleNo) => {
     if (!vehicleNo) return;
     try {
-      const res  = await fetch(`${API_BASE_URL}/gps/location/${encodeURIComponent(vehicleNo)}`);
+      const res = await fetch(`${API_BASE_URL}/gps/location/${encodeURIComponent(vehicleNo)}`);
       const json = await res.json();
       if (json.success && json.data) {
         setLiveGps(json.data);
@@ -176,25 +179,25 @@ export function ViewShipmentSheet({ open, onOpenChange, shipment, onStatusChange
 
   if (!shipment) return null;
 
-  const s      = fullShipment ?? shipment;
+  const s = fullShipment ?? shipment;
   const detail = buildDetail(s, liveGps);
-  const sc     = statusConfig[s.status] ?? statusConfig["Pending"];
+  const sc = statusConfig[s.status] ?? statusConfig["Pending"];
 
   const totalQty = s.totalQuantity ?? 0;
-  const totalWt  = s.totalWeightKg ?? 0;
+  const totalWt = s.totalWeightKg ?? 0;
   const loadUtil = detail?.vehicleCapacity ? Math.round((totalWt / detail.vehicleCapacity) * 100) : 0;
 
   const firstDest = s.destinations?.[0] ?? {};
   const viewShipment = {
     ...s,
-    id:             s.shipmentId ?? s._id,
-    status:         s.status,
-    dealerName:     firstDest.customerName     || "—",
+    id: s.shipmentId ?? s._id,
+    status: s.status,
+    dealerName: firstDest.customerName || "—",
     dealerLocation: firstDest.deliveryLocation || "—",
-    vehicleNumber:  s.vehicleNumber            || (typeof s.vehicleId === "object" ? s.vehicleId?.vehicleNo : "—"),
-    vehicleType:    detail?.vehicleType        || "—",
-    driverName:     s.driverName               || (typeof s.driverId === "object" ? s.driverId?.name : "—"),
-    driverPhone:    s.driverPhone              || (typeof s.driverId === "object" ? s.driverId?.phone : "—"),
+    vehicleNumber: s.vehicleNumber || (typeof s.vehicleId === "object" ? s.vehicleId?.vehicleNo : "—"),
+    vehicleType: detail?.vehicleType || "—",
+    driverName: s.driverName || (typeof s.driverId === "object" ? s.driverId?.name : "—"),
+    driverPhone: s.driverPhone || (typeof s.driverId === "object" ? s.driverId?.phone : "—"),
   };
 
   const handleStatusUpdate = async (newStatus) => {
@@ -308,8 +311,9 @@ export function ViewShipmentSheet({ open, onOpenChange, shipment, onStatusChange
                 onDestinationDeliverySuccess={handleDestinationDeliverySuccess}
                 setPodViewImage={setPodViewImage}
               />
+              <ItemsBreakdown shipment={viewShipment} detail={detail} totalQty={totalQty} totalWt={totalWt} />
               <VehicleDriverDetails shipment={viewShipment} detail={detail} loadUtil={loadUtil} />
-              <ShipmentTimeline     detail={detail} />
+              <ShipmentTimeline detail={detail} />
 
               {podViewImage && (
                 <div className="fixed inset-0 z-[100] bg-black/70 flex items-center justify-center p-8" onClick={() => setPodViewImage(null)}>
@@ -354,8 +358,7 @@ export function ViewShipmentSheet({ open, onOpenChange, shipment, onStatusChange
             )}
             {s.status === "Delivered" && (
               <>
-                <Button variant="outline" className="border-border gap-2"><FileText className="w-4 h-4" />View Proof of Delivery</Button>
-                <Button 
+                <Button
                   className="gap-2 bg-slate-700 hover:bg-slate-800 text-white shadow-sm"
                   onClick={() => handleStatusUpdate("Closed")}
                 >
@@ -365,7 +368,6 @@ export function ViewShipmentSheet({ open, onOpenChange, shipment, onStatusChange
             )}
             {s.status === "Closed" && (
               <>
-                <Button variant="outline" className="border-border gap-2"><FileText className="w-4 h-4" />View Proof of Delivery</Button>
                 <Button className="gap-2 bg-[#1d4ed8] hover:bg-[#1e40af] text-white shadow-sm"><Download className="w-4 h-4" />Download Invoice</Button>
               </>
             )}

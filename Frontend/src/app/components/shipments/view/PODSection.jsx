@@ -27,6 +27,7 @@ export function PODSection({
             onSavePOD={onSaveDestinationPOD}
             onDeliverySuccess={onDestinationDeliverySuccess}
             setPodViewImage={setPodViewImage}
+            shipmentStatus={shipment.status}
           />
         ))}
       </div>
@@ -42,6 +43,7 @@ function DestinationPODCard({
   onSavePOD,
   onDeliverySuccess,
   setPodViewImage,
+  shipmentStatus = "Pending",
 }) {
   const [receiverName, setReceiverName] = useState(dest.podReceiverName || "");
   const [remarks, setRemarks] = useState(dest.podRemarks || "");
@@ -49,11 +51,12 @@ function DestinationPODCard({
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
 
-  const isDelivered = dest.status === "Delivered";
+  const isDestDelivered = dest.status === "Delivered";
+  const isPodSaved = !!(dest.podImages?.length > 0 || dest.podReceiverName || dest.podRemarks);
 
-  // Delivery timestamp from timeline
-  const deliveredTimestamp =
-    timeline?.find((t) => t.step === "Delivered")?.timestamp ?? "—";
+  // Decide view modes based on shipmentStatus
+  const isPending = shipmentStatus === "Pending";
+  const isClosed = shipmentStatus === "Closed" || shipmentStatus === "Cancelled" || shipmentStatus === "Returned";
 
   const lrDisplay = dest.lrNumber || `LR-TEMP-${index + 1}`;
 
@@ -89,13 +92,17 @@ function DestinationPODCard({
         </div>
         <span
           className={`inline-flex items-center gap-1.5 text-[10px] px-2.5 py-0.5 rounded-full border font-bold uppercase tracking-wider ${
-            isDelivered
+            isDestDelivered && images.length > 0
               ? "bg-emerald-50 text-emerald-700 border-emerald-200"
               : "bg-amber-50 text-amber-700 border-amber-200"
           }`}
         >
-          {isDelivered ? (
-            <><CheckCircle2 className="w-3 h-3" /> Signed & Delivered</>
+          {isDestDelivered ? (
+            images.length > 0 ? (
+              <><CheckCircle2 className="w-3 h-3" /> Signed & Delivered</>
+            ) : (
+              <><Clock className="w-3 h-3" /> Delivered (Pending POD)</>
+            )
           ) : (
             <><Clock className="w-3 h-3" /> Awaiting Delivery</>
           )}
@@ -121,13 +128,10 @@ function DestinationPODCard({
             <DetailField label="Weight" value={`${dest.weightKg} kg`} />
             <DetailField label="Quantity" value={`${dest.totalQuantity || (dest.totalTyres || 0) + (dest.totalTubes || 0) + (dest.totalFlaps || 0)} items`} />
           </div>
-        </div>
 
-        {/* Right Side: Items & POD status */}
-        <div className="space-y-4 pl-0 md:pl-6 pt-4 md:pt-0">
           <div>
             <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Cargo Items</h4>
-            <div className="flex flex-wrap items-center gap-4 mt-3">
+            <div className="flex flex-wrap items-center gap-4 mt-2">
               <div className="flex items-center gap-1.5">
                 <CircleDot className="w-3.5 h-3.5 text-blue-600" />
                 <span className="text-xs text-muted-foreground">Tyres:</span>
@@ -145,18 +149,29 @@ function DestinationPODCard({
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Render details if delivered, form if pending */}
-          {isDelivered ? (
+        {/* Right Side: Items & POD status */}
+        <div className="space-y-4 pl-0 md:pl-6 pt-4 md:pt-0">
+
+          {/* Conditional rendering based on shipmentStatus */}
+          {isPending ? (
+            /* 1. Shipment is Pending (Awaiting Dispatch) */
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-center">
+              <p className="text-xs text-muted-foreground leading-normal">
+                Shipment is pending dispatch. Delivery actions and POD submission will become available once the vehicle is dispatched.
+              </p>
+            </div>
+          ) : isClosed ? (
+            /* 2. Shipment is Closed or Cancelled (Locked Read-Only View) */
             <div className="bg-emerald-50/40 border border-emerald-100 rounded-xl p-4 space-y-3.5">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <DetailField label="Receiver Name" value={dest.podReceiverName || "—"} />
-                <DetailField label="Received Date" value={deliveredTimestamp} />
                 <DetailField label="Delivery Remarks" value={dest.podRemarks || "—"} />
               </div>
               {dest.podImages?.length > 0 && (
                 <div>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">Proof Images</p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2 font-semibold">Proof Images</p>
                   <div className="flex flex-wrap gap-2">
                     {dest.podImages.map((img, idx) => (
                       <div key={idx} className="relative w-12 h-12 rounded border border-border overflow-hidden bg-white cursor-pointer hover:border-[#1d4ed8] transition-colors" onClick={() => setPodViewImage(img)}>
@@ -168,7 +183,15 @@ function DestinationPODCard({
               )}
             </div>
           ) : (
+            /* 3. Shipment is In Transit or Delivered (Active Editable Form) */
             <div className="space-y-4">
+              {isDestDelivered && (
+                <div className="flex items-center gap-2 bg-[#f0fdf4] border border-[#bbf7d0] rounded-lg px-3.5 py-2.5 text-xs text-[#15803d] font-semibold leading-normal">
+                  <CheckCircle2 className="w-4 h-4 text-[#16a34a] shrink-0" />
+                  <span>Delivery confirmed. You can still upload proof images and save POD details below until the shipment is closed.</span>
+                </div>
+              )}
+
               {/* Image upload widget */}
               <div
                 className="border border-dashed border-border rounded-xl p-3 flex flex-col items-center gap-1 hover:border-[#1d4ed8]/40 hover:bg-[#fafbfe] transition-colors cursor-pointer"
@@ -208,10 +231,50 @@ function DestinationPODCard({
                 />
               </div>
 
+              {/* Uploaded images preview list in edit mode */}
+              {images.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="text-[9px] text-muted-foreground uppercase tracking-wider font-semibold">Uploaded Images</p>
+                  <div className="flex flex-wrap gap-2">
+                    {images.map((img, idx) => (
+                      <div key={idx} className="relative w-12 h-12 rounded border border-border overflow-hidden bg-slate-50 group">
+                        <img src={img} alt="POD upload" className="w-full h-full object-cover" />
+                        <div
+                          className="absolute inset-0 bg-black/40 flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPodViewImage(img);
+                            }}
+                            className="w-5 h-5 rounded-full bg-white/20 hover:bg-white/40 flex items-center justify-center transition-colors cursor-pointer"
+                            title="View Image"
+                          >
+                            <Eye className="w-3 h-3 text-white" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setImages((prev) => prev.filter((_, i) => i !== idx));
+                            }}
+                            className="w-5 h-5 rounded-full bg-white/20 hover:bg-red-600 flex items-center justify-center transition-colors cursor-pointer"
+                            title="Remove"
+                          >
+                            <X className="w-3 h-3 text-white" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Input fields */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-[9px] text-muted-foreground uppercase tracking-wider">Receiver Name</label>
+                  <label className="text-[9px] text-muted-foreground uppercase tracking-wider font-semibold">Receiver Name</label>
                   <input
                     type="text"
                     placeholder="Receiver's name..."
@@ -221,7 +284,7 @@ function DestinationPODCard({
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[9px] text-muted-foreground uppercase tracking-wider">Remarks</label>
+                  <label className="text-[9px] text-muted-foreground uppercase tracking-wider font-semibold">Remarks</label>
                   <input
                     type="text"
                     placeholder="Remarks..."
@@ -234,24 +297,43 @@ function DestinationPODCard({
 
               {/* Action Buttons */}
               <div className="flex justify-end gap-2.5 pt-1.5">
+                {!isDestDelivered && (
+                  <Button
+                    className="gap-1.5 h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm font-bold"
+                    onClick={() => onDeliverySuccess(dest._id)}
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Delivery Success
+                  </Button>
+                )}
+                {images.length > 0 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="gap-1.5 h-8 text-xs border-slate-200 text-slate-700 hover:bg-slate-50 font-bold"
+                    onClick={() => setPodViewImage(images[0])}
+                  >
+                    <Eye className="w-3.5 h-3.5 text-slate-500" />
+                    View POD
+                  </Button>
+                )}
                 <Button
-                  className="gap-1.5 h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm font-bold"
-                  onClick={() => onDeliverySuccess(dest._id)}
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  Delivery Success
-                </Button>
-                <Button
-                  className="gap-1.5 h-8 text-xs bg-[#1d4ed8] hover:bg-[#1e40af] text-white shadow-sm font-bold"
+                  className={`gap-1.5 h-8 text-xs font-bold text-white shadow-sm transition-all duration-150 ${
+                    isPodSaved 
+                      ? "bg-emerald-600 hover:bg-emerald-700" 
+                      : "bg-[#1d4ed8] hover:bg-[#1e40af]"
+                  }`}
                   disabled={images.length === 0 && !receiverName && !remarks}
                   onClick={handleSave}
                 >
                   {uploading ? (
                     <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : isPodSaved ? (
+                    <CheckCircle2 className="w-3.5 h-3.5" />
                   ) : (
                     <FileCheck className="w-3.5 h-3.5" />
                   )}
-                  {uploading ? "Saving..." : "Save POD Data"}
+                  {uploading ? "Saving..." : isPodSaved ? "Uploaded" : "Save POD Data"}
                 </Button>
               </div>
             </div>

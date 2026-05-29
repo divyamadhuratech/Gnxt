@@ -1,21 +1,21 @@
-import express        from "express";
-import cors           from "cors";
-import dotenv         from "dotenv";
+import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
 import { createServer } from "http";
-import { Server }     from "socket.io";
-import connectDB      from "./config/db.js";
-import invoiceRoutes  from "./routes/invoice.routes.js";
+import { Server } from "socket.io";
+import connectDB from "./config/db.js";
+import invoiceRoutes from "./routes/invoice.routes.js";
 import shipmentRoutes from "./routes/shipment.routes.js";
-import expenseRoutes  from "./routes/expense.routes.js";
-import gpsRoutes      from "./routes/gps.routes.js";
-import vehicleRoutes  from "./routes/vehicleRoutes.js";
-import driverRoutes   from "./routes/driverRoutes.js";
-import reportRoutes   from "./routes/report.routes.js";
+import expenseRoutes from "./routes/expense.routes.js";
+import gpsRoutes from "./routes/gps.routes.js";
+import vehicleRoutes from "./routes/vehicleRoutes.js";
+import driverRoutes from "./routes/driverRoutes.js";
+import reportRoutes from "./routes/report.routes.js";
 import dashboardRoutes from "./routes/dashboard.routes.js";
-import authRoutes     from "./routes/auth.routes.js";
-import userRoutes     from "./routes/user.routes.js";
-import supportRoutes  from "./routes/support.routes.js";
-import { setIo }      from "./controllers/gps.controller.js";
+import authRoutes from "./routes/auth.routes.js";
+import userRoutes from "./routes/user.routes.js";
+import supportRoutes from "./routes/support.routes.js";
+import { setIo } from "./controllers/gps.controller.js";
 import { startOfflineDetection } from "./services/offlineDetection.js";
 import { upload } from "./middleware/upload.js";
 import path from "path";
@@ -28,7 +28,7 @@ const __dirname = path.dirname(__filename);
 
 dotenv.config();
 
-const app        = express();
+const app = express();
 const httpServer = createServer(app);   // wrap express in http.Server
 
 /* ── Socket.io ─────────────────────────────────── */
@@ -76,17 +76,17 @@ app.use("/uploads", express.static(path.join(path.dirname(__dirname), "uploads")
 connectDB();
 
 /* ── Routes ────────────────────────────────────── */
-app.use("/api/auth",      authRoutes);
-app.use("/api/users",     userRoutes);
-app.use("/api/invoices",  invoiceRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/invoices", invoiceRoutes);
 app.use("/api/shipments", shipmentRoutes);
-app.use("/api/expenses",  expenseRoutes);
-app.use("/api/gps",       gpsRoutes);
-app.use("/api/vehicles",  vehicleRoutes);
-app.use("/api/drivers",   driverRoutes);
-app.use("/api/reports",   reportRoutes);
+app.use("/api/expenses", expenseRoutes);
+app.use("/api/gps", gpsRoutes);
+app.use("/api/vehicles", vehicleRoutes);
+app.use("/api/drivers", driverRoutes);
+app.use("/api/reports", reportRoutes);
 app.use("/api/dashboard", dashboardRoutes);
-app.use("/api/support",   supportRoutes);
+app.use("/api/support", supportRoutes);
 
 /* ── File Upload ──────────────────────────────── */
 app.post("/api/upload", upload.single("file"), (req, res) => {

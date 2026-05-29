@@ -18,10 +18,9 @@ export function ShipmentTable({
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent bg-[#fafbfc]">
-              <TableHead className="pl-5 w-[140px]">LR Number</TableHead>
-              <TableHead className="w-[120px]">Plant Number</TableHead>
-              <TableHead className="w-[150px]">Invoice Number</TableHead>
-              <TableHead className="w-[200px]">Dealer & Location</TableHead>
+              <TableHead className="pl-5 w-[160px]">Shipment ID</TableHead>
+              <TableHead className="w-[140px]">Plant Number</TableHead>
+              <TableHead className="w-[220px]">Dealer & Location</TableHead>
               <TableHead className="w-[150px]">Items & Weight</TableHead>
               <TableHead className="w-[160px]">Driver Info</TableHead>
               <TableHead className="w-[160px]">Vehicle Info</TableHead>

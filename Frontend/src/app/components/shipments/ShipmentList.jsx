@@ -29,6 +29,7 @@ export function ShipmentList() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("all");
+  const [podFilter, setPodFilter] = useState("all");
   const [uploading, setUploading] = useState(false);
   const [total, setTotal] = useState(0);
 
@@ -42,16 +43,16 @@ export function ShipmentList() {
 
   const activeShipmentsOnly = useMemo(() => {
     const list = Array.isArray(shipmentData) ? shipmentData : [];
-    return list.filter(s => s.status !== "Delivered" && s.status !== "Cancelled");
+    return list.filter(s => s.status !== "Returned" && s.status !== "Cancelled" && s.status !== "Closed");
   }, [shipmentData]);
 
   const historyShipmentsOnly = useMemo(() => {
     const list = Array.isArray(shipmentData) ? shipmentData : [];
-    return list.filter(s => s.status === "Delivered" || s.status === "Cancelled");
+    return list.filter(s => s.status === "Returned" || s.status === "Cancelled" || s.status === "Closed");
   }, [shipmentData]);
 
   const filteredShipments = useMemo(() => {
-    const list = (statusFilter === "Delivered" || statusFilter === "Cancelled" || statusFilter === "Returned")
+    const list = (statusFilter === "Delivered" || statusFilter === "Cancelled" || statusFilter === "Returned" || statusFilter === "Closed")
       ? (Array.isArray(shipmentData) ? shipmentData : [])
       : activeShipmentsOnly;
     return list.filter((s) => {
@@ -66,9 +67,17 @@ export function ShipmentList() {
       const matchesStatus = statusFilter === "all" || s.status === statusFilter;
       const matchesDate = dateFilter === "all" || isWithinDateRange(s.createdAt, dateFilter);
 
-      return matchesSearch && matchesStatus && matchesDate;
+      const podConfig = getPODConfig(s);
+      const matchesPod =
+        podFilter === "all" ||
+        (podFilter === "Pending" && podConfig.label === "Pending") ||
+        (podFilter === "Partial" && podConfig.label.startsWith("Partial")) ||
+        (podFilter === "Signed" && podConfig.label === "Signed") ||
+        (podFilter === "Not Generated" && podConfig.label === "Not Generated");
+
+      return matchesSearch && matchesStatus && matchesDate && matchesPod;
     });
-  }, [activeShipmentsOnly, shipmentData, searchQuery, statusFilter, dateFilter]);
+  }, [activeShipmentsOnly, shipmentData, searchQuery, statusFilter, dateFilter, podFilter]);
 
   const statusCounts = useMemo(() => {
     const list = Array.isArray(shipmentData) ? shipmentData : [];
@@ -157,6 +166,8 @@ export function ShipmentList() {
           onStatusFilterChange={setStatusFilter}
           dateFilter={dateFilter}
           onDateFilterChange={setDateFilter}
+          podFilter={podFilter}
+          onPodFilterChange={setPodFilter}
           statusCounts={{ ...statusCounts }}
           totalShipments={activeShipmentsOnly.length}
         />
@@ -196,6 +207,8 @@ export function ShipmentList() {
           open={historyOpen}
           onOpenChange={setHistoryOpen}
           historyShipments={historyShipmentsOnly}
+          setSelectedShipment={setSelectedShipment}
+          setViewSheetOpen={setViewSheetOpen}
           onDeleted={() => fetchShipments()}
         />
       </div>

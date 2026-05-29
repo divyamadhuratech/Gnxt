@@ -23,15 +23,15 @@ export function PlantRow({
 }) {
   const [openPlants, setOpenPlants] = useState(false);
   const sc  = statusConfig[shipment.status] || { label: shipment.status || "N/A", className: "bg-gray-50 text-gray-700 border-gray-200" };
-  const pod = getPODConfig(shipment.status);
+  const pod = getPODConfig(shipment);
 
   const dest = shipment.destinations?.[0] ?? {};
 
-  // LR Number
-  const lrNumber = dest.lrNumber || "—";
-
-  // Plant Number
-  const plantNumber = dest.plantReferenceNumber || "—";
+  // Collect all unique plant numbers across all destinations of this shipment
+  const allPlants = (shipment.destinations ?? [])
+    .flatMap((d) => (d.plantReferenceNumber || "").split(",").map((p) => p.trim()))
+    .filter(Boolean);
+  const plantNumbers = [...new Set(allPlants)];
 
   // Customer name & location — from denormalized dest fields (set at create/update time)
   // For older records: fall back to any populated invoice across all destinations
@@ -63,25 +63,21 @@ export function PlantRow({
 
   return (
     <TableRow className="group cursor-default hover:bg-muted/30">
-      {/* LR Number */}
+      {/* Shipment ID (Primary Column) */}
       <TableCell className="pl-5">
-        <span className="text-sm font-medium text-[#1d4ed8]">{lrNumber}</span>
-        {shipment.destinations?.length > 1 && (
-          <span className="ml-1.5 text-[10px] text-muted-foreground">+{shipment.destinations.length - 1}</span>
-        )}
+        <span className="text-sm font-semibold text-[#1d4ed8] tracking-tight">{shipment.shipmentId}</span>
       </TableCell>
 
-      {/* Plant Number */}
+      {/* Plant Number (Dropdown or Badge) */}
       <TableCell>
         {(() => {
-          const plantNumbers = plantNumber.split(",").map(p => p.trim()).filter(Boolean);
           if (plantNumbers.length > 1) {
             return (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
                     onClick={(e) => e.stopPropagation()}
-                    className="text-xs font-semibold text-[#1d4ed8] bg-blue-50/60 hover:bg-blue-50 border border-blue-200/60 px-2 py-1 rounded-md flex items-center gap-1.5 cursor-pointer transition-all duration-150 shadow-sm"
+                    className="text-xs font-semibold text-[#1d4ed8] bg-blue-50/60 hover:bg-blue-50 border border-blue-200/60 px-2.5 py-1.5 rounded-md flex items-center gap-1.5 cursor-pointer transition-all duration-150 shadow-sm"
                   >
                     <span className="truncate max-w-[80px]">{plantNumbers[0]}</span>
                     <span className="bg-[#1d4ed8] text-white text-[9px] px-1.5 py-0.5 rounded-full font-bold">+{plantNumbers.length - 1}</span>
@@ -107,17 +103,15 @@ export function PlantRow({
               </DropdownMenu>
             );
           }
-          return (
-            <span className="text-xs font-semibold text-slate-700 bg-slate-100 border border-slate-200/60 px-2.5 py-1 rounded-md">
-              {plantNumber}
-            </span>
-          );
+          if (plantNumbers.length === 1) {
+            return (
+              <span className="text-xs font-semibold text-slate-700 bg-slate-100 border border-slate-200/60 px-2.5 py-1.5 rounded-md">
+                {plantNumbers[0]}
+              </span>
+            );
+          }
+          return <span className="text-xs font-semibold text-slate-400">—</span>;
         })()}
-      </TableCell>
-
-      {/* Invoice Number column — only Shipment ID */}
-      <TableCell>
-        <span className="text-sm font-medium text-[#1d4ed8]">{shipment.shipmentId}</span>
       </TableCell>
 
       {/* Dealer & Location — customerName + district from invoice */}
@@ -186,7 +180,6 @@ export function PlantRow({
         >
           {pod.icon && <FileCheck className="w-3 h-3" />}
           {pod.label}
-          {shipment.status === "Delivered" && <Eye className="w-3 h-3 ml-0.5 opacity-60" />}
         </span>
       </TableCell>
 

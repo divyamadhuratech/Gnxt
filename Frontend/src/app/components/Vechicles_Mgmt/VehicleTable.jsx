@@ -39,6 +39,11 @@ const statusStyles = {
     text: "text-blue-700",
     dot: "bg-blue-500",
   },
+  Assigned: {
+    bg: "bg-blue-50 border-blue-200",
+    text: "text-blue-700",
+    dot: "bg-blue-500",
+  },
   Maintenance: { bg: "bg-amber-50 border-amber-200", text: "text-amber-700" },
   Idle: { bg: "bg-slate-50 border-slate-200", text: "text-slate-600" },
   Breakdown: { bg: "bg-red-50 border-red-200", text: "text-red-700" },
@@ -50,6 +55,7 @@ const availabilityStyles = {
     text: "text-emerald-700",
   },
   "On Trip": { bg: "bg-blue-50 border-blue-200", text: "text-blue-700" },
+  Assigned: { bg: "bg-blue-50 border-blue-200", text: "text-blue-700" },
   Unavailable: { bg: "bg-red-50 border-red-200", text: "text-red-700" },
   Scheduled: { bg: "bg-violet-50 border-violet-200", text: "text-violet-700" },
 };
@@ -122,9 +128,16 @@ function VehicleTableRow({
   onScheduleMaintenance,
   onTrackLocation,
 }) {
-  const sts = statusStyles[vehicle.status];
-  const avail = availabilityStyles[vehicle.availability];
-  const typeBadge = vehicleTypeBadge[vehicle.type];
+  const sts = statusStyles[vehicle.status] || {
+    bg: "bg-slate-50 border-slate-200",
+    text: "text-slate-600",
+    dot: "bg-slate-400"
+  };
+  const avail = availabilityStyles[vehicle.availability] || {
+    bg: "bg-slate-50 border-slate-200",
+    text: "text-slate-600"
+  };
+  const typeBadge = vehicleTypeBadge[vehicle.type] || "bg-slate-50 text-slate-700 border-slate-200";
   const insExpiring = isExpiringSoon(vehicle.insuranceExpiry);
   const insExpired = isExpired(vehicle.insuranceExpiry);
   const isMaintenance = vehicle.status === "Maintenance";

@@ -314,6 +314,8 @@ export function CreateShipmentSheet({ open, onOpenChange, onCreated, editShipmen
                   }
                   onAddRelatedPlant={(plantRef) => addRelatedPlant(entry.id, plantRef)}
                   onRemoveRelatedPlant={(plantRef) => removeRelatedPlant(entry.id, plantRef)}
+                  isEditMode={isEditMode}
+                  initialInvoices={editShipment ? (editShipment.destinations?.[index]?.invoiceIds || []) : []}
                 />
               ))}
               <Button

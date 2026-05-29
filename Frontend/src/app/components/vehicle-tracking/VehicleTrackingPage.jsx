@@ -203,7 +203,11 @@ export function VehicleTrackingPage() {
           <div className="xl:col-span-3 space-y-6">
             <KpiCards
               departedTime={activeShipment?.dispatchDate ? new Date(activeShipment.dispatchDate).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "---"}
-              arrivedTime={activeShipment?.deliveryDate ? new Date(activeShipment.deliveryDate).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "---"}
+              arrivedTime={activeShipment?.returnedDate 
+                ? new Date(activeShipment.returnedDate).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) 
+                : (activeShipment?.deliveryDate 
+                  ? new Date(activeShipment.deliveryDate).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) 
+                  : "---")}
             />
             {activeShipment && <TimelineSection data={data} />}
           </div>

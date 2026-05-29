@@ -21,36 +21,75 @@ export const statusConfig = {
     label: "Closed",
     className: "bg-slate-100 text-slate-800 border-slate-300",
   },
+  Returned: {
+    label: "Returned",
+    className: "bg-slate-100 text-slate-700 border-slate-300",
+  },
 };
 
-export function getPODConfig(status) {
-  switch (status) {
-    case "Closed":
-    case "Delivered":
-      return {
-        label: "Signed",
-        icon: true,
-        className: "bg-emerald-50 text-emerald-700 border-emerald-200",
-      };
-    case "In Transit":
-      return {
-        label: "Pending",
-        icon: false,
-        className: "bg-amber-50 text-amber-700 border-amber-200",
-      };
-    case "Pending":
-      return {
-        label: "Not Generated",
-        icon: false,
-        className: "bg-gray-50 text-gray-500 border-gray-200",
-      };
-    default:
-      return {
-        label: "N/A",
-        icon: false,
-        className: "bg-gray-50 text-gray-400 border-gray-200",
-      };
+export function getPODConfig(shipment) {
+  if (!shipment) {
+    return {
+      label: "N/A",
+      icon: false,
+      className: "bg-gray-50 text-gray-400 border-gray-200",
+    };
   }
+
+  // If shipment is pending dispatch, POD is not generated yet
+  if (shipment.status === "Pending") {
+    return {
+      label: "Not Generated",
+      icon: false,
+      className: "bg-gray-50 text-gray-500 border-gray-200",
+    };
+  }
+
+  const destinations = shipment.destinations || [];
+  const total = destinations.length;
+
+  if (total === 0) {
+    return {
+      label: "Not Generated",
+      icon: false,
+      className: "bg-gray-50 text-gray-500 border-gray-200",
+    };
+  }
+
+  // Count how many destinations have uploaded/submitted POD (images are required for proof!)
+  let signedCount = destinations.filter((d) =>
+    d.podImages && d.podImages.length > 0
+  ).length;
+
+  // Fallback for older single-destination shipments where podImages was stored at the top level
+  if (signedCount === 0 && shipment.podImages && shipment.podImages.length > 0) {
+    signedCount = total;
+  }
+
+  // 2. Once all are uploaded/submitted -> "Signed"
+  if (signedCount === total) {
+    return {
+      label: "Signed",
+      icon: true,
+      className: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    };
+  }
+
+  // 3. If multiple destinations and POD is submitted for few destinations -> "Partial (1/2)" or "Partial (2/3)"
+  if (total > 1 && signedCount > 0) {
+    return {
+      label: `Partial (${signedCount}/${total})`,
+      icon: false,
+      className: "bg-amber-50 text-amber-700 border-amber-200",
+    };
+  }
+
+  // 4. Initial after dispatch / no uploads yet -> "Pending"
+  return {
+    label: "Pending",
+    icon: false,
+    className: "bg-amber-50 text-amber-700 border-amber-200",
+  };
 }
 
 export function isWithinDateRange(date, filter) {
