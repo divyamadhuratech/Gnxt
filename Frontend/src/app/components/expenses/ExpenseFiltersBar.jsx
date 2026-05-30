@@ -57,34 +57,7 @@ export function ExpenseFiltersBar({
           />
         </div>
 
-        {/* Single Date Picker */}
-        <Popover open={dateOpen} onOpenChange={setDateOpen} modal={true}>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              className={`h-9 px-3 text-xs gap-1.5 border-border bg-white hover:bg-white ${
-                !filterDate ? "text-muted-foreground" : "text-foreground"
-              }`}
-            >
-              <CalendarDays className="w-3.5 h-3.5" />
-              {filterDate
-                ? format(filterDate, "dd MMM yyyy")
-                : "Pick a date"}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar
-              mode="single"
-              selected={filterDate}
-              onSelect={(d) => {
-                setFilterDate(d ?? undefined);
-                setDateOpen(false);
-                setCurrentPage(1);
-              }}
-              initialFocus
-            />
-          </PopoverContent>
-        </Popover>
+
 
 
         {/* LR Number */}
@@ -171,26 +144,7 @@ export function ExpenseFiltersBar({
           </SelectContent>
         </Select>
 
-        {/* Expense Type */}
-        <Select
-          value={filterExpenseType}
-          onValueChange={(v) => {
-            setFilterExpenseType(v);
-            setCurrentPage(1);
-          }}
-        >
-          <SelectTrigger className="h-9 w-[140px] text-xs bg-white border-border">
-            <SelectValue placeholder="All Types" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Types</SelectItem>
-            {expenseTypes.map((t) => (
-              <SelectItem key={t} value={t}>
-                {t}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+
 
         {/* Clear Filters */}
         {hasActiveFilters && (

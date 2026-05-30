@@ -25,6 +25,11 @@ export function PlantRow({ plant, onDeleted }) {
   const first = invoices[0];
   const rest = invoices.slice(1);
 
+  const isPendingDelayed =
+    plant.status === "Pending" &&
+    plant.createdAt &&
+    Date.now() - new Date(plant.createdAt).getTime() > 24 * 60 * 60 * 1000;
+
   return (
     <>
       <TableRow
@@ -83,7 +88,7 @@ export function PlantRow({ plant, onDeleted }) {
         </TableCell>
 
         <TableCell>
-          <StatusBadge status={plant.status} />
+          <StatusBadge status={plant.status} isDelayed={isPendingDelayed} />
         </TableCell>
 
         <TableCell onClick={(e) => e.stopPropagation()}>

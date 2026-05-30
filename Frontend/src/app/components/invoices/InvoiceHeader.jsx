@@ -7,6 +7,7 @@ export function InvoiceHeader({
   total,
   uploading,
   onFileUpload,
+  onHistoryClick,
 }) {
   return (
     <div className="flex items-center justify-between">
@@ -48,7 +49,9 @@ export function InvoiceHeader({
           </div>
         </label>
 
-        <ButtonUI>History</ButtonUI>
+        <ButtonUI onClick={onHistoryClick} variant="outline" className="border-border">
+          History
+        </ButtonUI>
       </div>
     </div>
   );

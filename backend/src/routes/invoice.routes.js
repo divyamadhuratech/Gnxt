@@ -5,8 +5,8 @@ import {
   uploadInvoiceSheet,
    updateInvoiceStatus,
   toggleInvoiceCheck,
-  deleteInvoice
-  
+  deleteInvoice,
+  getInvoiceHistory
 } from "../controllers/invoice.controller.js";
 import { upload } from "../middleware/upload.middleware.js";
 
@@ -17,6 +17,8 @@ router.post("/upload", upload.single("file"), uploadInvoiceSheet);
 
 // Get invoices (for table)
 router.get("/", getInvoices);
+
+router.get("/history", getInvoiceHistory);
 
 router.patch("/:plantId/status", updateInvoiceStatus);
 

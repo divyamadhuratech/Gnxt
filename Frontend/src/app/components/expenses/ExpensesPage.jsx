@@ -431,6 +431,13 @@ export function ExpensesPage() {
           setAddModalOpen(true);
         }}
         onExport={handleExport}
+        filterDate={filterDate}
+        setFilterDate={setFilterDate}
+        dateOpen={dateOpen}
+        setDateOpen={setDateOpen}
+        filterExpenseType={filterExpenseType}
+        setFilterExpenseType={setFilterExpenseType}
+        setCurrentPage={setCurrentPage}
       />
 
       <ExpenseFiltersBar

@@ -59,6 +59,8 @@ export function HistoryShipmentSheet({ open, onOpenChange, historyShipments = []
 
   const isAllSelected = filtered.length > 0 && filtered.every((s) => selectedIds.includes(s._id));
 
+  const API_BASE_URL = import.meta.env?.VITE_API_URL || "http://localhost:5000/api";
+
   // Export to Excel using xlsx
   const handleExport = () => {
     const selectedData = historyShipments.filter((s) => selectedIds.includes(s._id));

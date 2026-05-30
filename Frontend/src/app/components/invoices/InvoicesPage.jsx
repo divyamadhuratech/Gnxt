@@ -4,6 +4,7 @@ import InvoiceFiltersBar from "./InvoiceFiltersBar";
 import InvoiceTable from "./InvoiceTable";
 import { AlertCircle, X } from "lucide-react";
 import { Button } from "../ui/button";
+import InvoiceHistorySheet from "./InvoiceHistorySheet";
 
 const API_BASE_URL =
   import.meta.env?.VITE_API_URL || "http://localhost:5000/api";
@@ -15,6 +16,7 @@ export function InvoicesPage() {
   const [invoices, setInvoices] = useState([]);
   const [statusFilter, setStatusFilter] = useState("All");
   const [currentPage, setCurrentPage] = useState(1);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -155,6 +157,7 @@ export function InvoicesPage() {
         total={total}
         uploading={uploading}
         onFileUpload={handleFileUpload}
+        onHistoryClick={() => setHistoryOpen(true)}
       />
 
       {error && (
@@ -292,6 +295,11 @@ export function InvoicesPage() {
         total={total}
         onPageChange={setCurrentPage}
         onDeleted={handleDeleted}
+      />
+
+      <InvoiceHistorySheet 
+        open={historyOpen}
+        onOpenChange={setHistoryOpen}
       />
     </div>
   );

@@ -40,10 +40,11 @@ export function TripFiltersBar({
         <SelectTrigger className="w-[190px] h-9 bg-white border-border">
           <div className="flex items-center gap-2">
             <Filter className="w-3.5 h-3.5 text-muted-foreground" />
-            <SelectValue placeholder="All Statuses" />
+            <SelectValue placeholder="Active Trips" />
           </div>
         </SelectTrigger>
         <SelectContent>
+          <SelectItem value="active">Active Trips ({statusCounts.all - (statusCounts.Idle || 0)})</SelectItem>
           <SelectItem value="all">All Statuses ({statusCounts.all})</SelectItem>
           <SelectItem value="In Transit">In Transit ({statusCounts["In Transit"] || 0})</SelectItem>
           <SelectItem value="Waiting for Dispatch">Waiting for Dispatch ({statusCounts["Waiting for Dispatch"] || 0})</SelectItem>

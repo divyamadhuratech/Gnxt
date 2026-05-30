@@ -125,19 +125,24 @@ export const getInvoices = async (req, res) => {
       query.status = status;
     }
 
-    // ACTIVE FILTER: exclude Delivered invoices that are older than 5 minutes
+    // ACTIVE FILTER: exclude Delivered invoices that are older than 1 minute
     // (they have moved to history)
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    const oneMinuteAgo = new Date(Date.now() - 1 * 60 * 1000);
     query.$nor = [
       {
         status: "Delivered",
-        deliveredAt: { $lt: fiveMinutesAgo },
+        $or: [
+          { deliveredAt: { $lt: oneMinuteAgo } },
+          { deliveredAt: null, updatedAt: { $lt: oneMinuteAgo } },
+          { deliveredAt: { $exists: false }, updatedAt: { $lt: oneMinuteAgo } }
+        ]
       },
     ];
 
     // FETCH MATCHING RECORDS
     const invoices = await Invoice.find(query).sort({
-      createdAt: -1,
+      plantReferenceNumber: 1,
+      invoiceNumber: 1
     });
 
     // GROUPING
@@ -153,6 +158,7 @@ export const getInvoices = async (req, res) => {
           customerName: inv.customerName,
           location: inv.location || "",
           status: inv.status,
+          createdAt: inv.createdAt,
           invoices: [],
         });
       }
@@ -318,11 +324,15 @@ export const getInvoiceHistory = async (req, res) => {
     page  = Number(page);
     limit = Number(limit);
 
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    const oneMinuteAgo = new Date(Date.now() - 1 * 60 * 1000);
 
     const query = {
       status: "Delivered",
-      deliveredAt: { $lt: fiveMinutesAgo },
+      $or: [
+        { deliveredAt: { $lt: oneMinuteAgo } },
+        { deliveredAt: null, updatedAt: { $lt: oneMinuteAgo } },
+        { deliveredAt: { $exists: false }, updatedAt: { $lt: oneMinuteAgo } }
+      ]
     };
 
     if (search.trim()) {

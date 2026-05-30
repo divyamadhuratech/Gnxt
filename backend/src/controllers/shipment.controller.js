@@ -78,16 +78,29 @@ export const createShipment = async (req, res) => {
     await shipment.save();
 
     // Mark selected invoices as Assigned
-    const allInvoiceIds = destinationDocs.reduce((acc, dest) => {
-      if (dest.invoiceIds?.length) {
-        acc.push(...dest.invoiceIds);
+    const allPlantNumbers = destinationDocs.reduce((acc, dest) => {
+      if (dest.plantReferenceNumber) {
+        acc.push(...dest.plantReferenceNumber.split(",").map(p => p.trim()).filter(Boolean));
       }
       return acc;
     }, []);
 
-    if (allInvoiceIds.length) {
+    if (allPlantNumbers.length) {
+      // Prevent duplicate assignment if UI was out of sync
+      const alreadyAssigned = await Invoice.find({
+        plantReferenceNumber: { $in: allPlantNumbers },
+        status: { $ne: "Pending" }
+      }).lean();
+
+      if (alreadyAssigned.length > 0) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "One or more selected invoices have already been assigned to another shipment." 
+        });
+      }
+
       await Invoice.updateMany(
-        { _id: { $in: allInvoiceIds } },
+        { plantReferenceNumber: { $in: allPlantNumbers } },
         { status: "Assigned" }
       );
     }
@@ -246,15 +259,28 @@ export const updateShipmentStatus = async (req, res) => {
 
       await shipment.save();
 
-      if (dest.invoiceIds?.length) {
+      if (dest.plantReferenceNumber) {
         let targetInvoiceStatus = "Assigned";
+        let deliveredAt = null;
         if (status === "Delivered") {
           targetInvoiceStatus = "Delivered";
+          deliveredAt = new Date();
+        } else if (status === "In Transit") {
+          targetInvoiceStatus = "In Transit";
         }
-        const rawInvoiceIds = dest.invoiceIds.map(inv => inv?._id || inv);
+        
+        const plantNumbers = dest.plantReferenceNumber.split(",").map(p => p.trim()).filter(Boolean);
+        
+        const updateData = { status: targetInvoiceStatus };
+        if (targetInvoiceStatus === "Delivered") {
+          updateData.deliveredAt = deliveredAt;
+        } else if (targetInvoiceStatus === "Pending" || targetInvoiceStatus === "Assigned" || targetInvoiceStatus === "In Transit") {
+          updateData.deliveredAt = null;
+        }
+
         await Invoice.updateMany(
-          { _id: { $in: rawInvoiceIds } },
-          { status: targetInvoiceStatus }
+          { plantReferenceNumber: { $in: plantNumbers } },
+          updateData
         );
       }
 
@@ -329,26 +355,35 @@ export const updateShipmentStatus = async (req, res) => {
     }
 
     // Sync invoice statuses
-    const allInvoiceIds = shipment.destinations?.reduce((acc, dest) => {
-      if (dest.invoiceIds?.length) {
-        acc.push(...dest.invoiceIds.map(inv => inv?._id || inv));
+    const allPlantNumbers = shipment.destinations?.reduce((acc, dest) => {
+      if (dest.plantReferenceNumber) {
+        acc.push(...dest.plantReferenceNumber.split(",").map(p => p.trim()).filter(Boolean));
       }
       return acc;
     }, []) || [];
 
-    if (allInvoiceIds.length) {
+    if (allPlantNumbers.length) {
       let targetInvoiceStatus = "Assigned";
+      let deliveredAt = null;
       if (status === "In Transit") {
         targetInvoiceStatus = "In Transit";
-      } else if (status === "Delivered" || status === "Closed") {
+      } else if (status === "Delivered" || status === "Closed" || status === "Returned") {
         targetInvoiceStatus = "Delivered";
-      } else if (status === "Returned" || status === "Cancelled") {
+        deliveredAt = new Date();
+      } else if (status === "Cancelled") {
         targetInvoiceStatus = "Pending";
       }
 
+      const updateData = { status: targetInvoiceStatus };
+      if (targetInvoiceStatus === "Delivered") {
+        updateData.deliveredAt = deliveredAt;
+      } else if (targetInvoiceStatus === "Pending" || targetInvoiceStatus === "Assigned" || targetInvoiceStatus === "In Transit") {
+        updateData.deliveredAt = null;
+      }
+
       await Invoice.updateMany(
-        { _id: { $in: allInvoiceIds } },
-        { status: targetInvoiceStatus }
+        { plantReferenceNumber: { $in: allPlantNumbers } },
+        updateData
       );
     }
 
@@ -457,37 +492,51 @@ export const updateShipment = async (req, res) => {
       update.totalQuantity = resolvedDests.reduce((s, d) => s + (d.totalQuantity || 0), 0);
 
       // Revert old invoices to Pending
-      const oldInvoiceIds = existing.destinations?.reduce((acc, dest) => {
-        if (dest.invoiceIds?.length) {
-          acc.push(...dest.invoiceIds);
+      const oldPlantNumbers = existing.destinations?.reduce((acc, dest) => {
+        if (dest.plantReferenceNumber) {
+          acc.push(...dest.plantReferenceNumber.split(",").map(p => p.trim()).filter(Boolean));
         }
         return acc;
       }, []) || [];
 
-      if (oldInvoiceIds.length) {
+      if (oldPlantNumbers.length) {
         await Invoice.updateMany(
-          { _id: { $in: oldInvoiceIds } },
+          { plantReferenceNumber: { $in: oldPlantNumbers } },
           { status: "Pending" }
         );
       }
 
       // Mark the new set of invoices as Assigned (or current status)
-      const newInvoiceIds = resolvedDests.reduce((acc, dest) => {
-        if (dest.invoiceIds?.length) {
-          acc.push(...dest.invoiceIds);
+      const newPlantNumbers = resolvedDests.reduce((acc, dest) => {
+        if (dest.plantReferenceNumber) {
+          acc.push(...dest.plantReferenceNumber.split(",").map(p => p.trim()).filter(Boolean));
         }
         return acc;
       }, []);
 
-      if (newInvoiceIds.length) {
+      if (newPlantNumbers.length) {
         const targetStatus = update.status || existing.status || "Assigned";
         let invoiceStatus = "Assigned";
-        if (targetStatus === "In Transit") invoiceStatus = "In Transit";
-        else if (targetStatus === "Delivered") invoiceStatus = "Delivered";
+        let deliveredAt = null;
+        if (targetStatus === "In Transit") {
+          invoiceStatus = "In Transit";
+        } else if (targetStatus === "Delivered" || targetStatus === "Closed" || targetStatus === "Returned") {
+          invoiceStatus = "Delivered";
+          deliveredAt = new Date();
+        } else if (targetStatus === "Cancelled") {
+          invoiceStatus = "Pending";
+        }
+
+        const updateData = { status: invoiceStatus };
+        if (invoiceStatus === "Delivered") {
+          updateData.deliveredAt = deliveredAt;
+        } else {
+          updateData.deliveredAt = null;
+        }
 
         await Invoice.updateMany(
-          { _id: { $in: newInvoiceIds } },
-          { status: invoiceStatus }
+          { plantReferenceNumber: { $in: newPlantNumbers } },
+          updateData
         );
       }
     }
@@ -539,14 +588,30 @@ export const deleteShipment = async (req, res) => {
       }
     }
 
-    // Revert associated invoices back to Pending
+    // Revert associated invoices back to Pending ONLY if they are not in another active shipment
     const allInvoiceIds = shipment.destinations?.reduce((acc, dest) => {
       if (dest.invoiceIds?.length) acc.push(...dest.invoiceIds);
       return acc;
     }, []) || [];
 
     if (allInvoiceIds.length) {
-      await Invoice.updateMany({ _id: { $in: allInvoiceIds } }, { status: "Pending" });
+      const invoicesToRevert = [];
+      for (const invId of allInvoiceIds) {
+        // Check if this invoice is still part of another shipment that is not cancelled
+        const otherShipment = await Shipment.findOne({
+          _id: { $ne: shipment._id },
+          "destinations.invoiceIds": invId,
+          status: { $in: ["Pending", "In Transit", "Delivered", "Closed", "Returned"] }
+        }).lean();
+        
+        if (!otherShipment) {
+          invoicesToRevert.push(invId);
+        }
+      }
+
+      if (invoicesToRevert.length > 0) {
+        await Invoice.updateMany({ _id: { $in: invoicesToRevert } }, { status: "Pending" });
+      }
     }
 
     res.status(200).json({ success: true, message: "Shipment deleted" });

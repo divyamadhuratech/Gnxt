@@ -20,14 +20,14 @@ export const getDashboardStats = async (req, res) => {
       Shipment.countDocuments({ status: "Pending" }),
       Shipment.countDocuments({ status: "Cancelled" }),
       Shipment.countDocuments({ status: "In Transit" }), // Pending Delivery is often same as In Transit or specific state
-      Shipment.countDocuments({ status: "Delivered", deliveryDate: { $gte: today } })
+      Shipment.countDocuments({ status: { $in: ["Delivered", "Closed", "Returned"] }, deliveryDate: { $gte: today } })
     ]);
 
     const stats = [
-      { title: "Active Shipments",   value: activeShipments.toString(),  trendUp: true,  iconName: "Truck",        iconColor: "text-blue-600",    bg: "bg-blue-50",    border: "border-blue-100"   },
-      { title: "Pending Dispatch",   value: pendingDispatch.toString(),  trendUp: true,  iconName: "Clock",        iconColor: "text-amber-600",   bg: "bg-amber-50",   border: "border-amber-100"  },
-      { title: "Cancelled Shipments", value: cancelledDispatch.toString(),  trendUp: false, iconName: "XCircle",      iconColor: "text-red-600",     bg: "bg-red-50",     border: "border-red-100"    },
-      { title: "Deliveries Today",   value: deliveriesToday.toString(), trendUp: true,  iconName: "CheckCircle2", iconColor: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100"}
+      { title: "Active Shipments", value: activeShipments.toString(), trendUp: true, iconName: "Truck", iconColor: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100" },
+      { title: "Pending Dispatch", value: pendingDispatch.toString(), trendUp: true, iconName: "Clock", iconColor: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100" },
+      { title: "Cancelled Shipments", value: cancelledDispatch.toString(), trendUp: false, iconName: "XCircle", iconColor: "text-red-600", bg: "bg-red-50", border: "border-red-100" },
+      { title: "Deliveries Today", value: deliveriesToday.toString(), trendUp: true, iconName: "CheckCircle2", iconColor: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100" }
     ];
 
     res.status(200).json({ success: true, data: stats });

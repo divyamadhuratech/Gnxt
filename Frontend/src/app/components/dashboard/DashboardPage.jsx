@@ -52,9 +52,9 @@ export function DashboardPage() {
           .filter(s => s.status !== "Delivered" && s.status !== "Cancelled")
           .map(formatShipmentForTable);
         const history = shipments
-          .filter(s => s.status === "Delivered" || s.status === "Cancelled")
+          .filter(s => ["Delivered", "Cancelled", "Closed", "Returned"].includes(s.status))
           .map(formatShipmentForTable);
-        
+
         setCurrentShipments(active);
         setHistoricalShipments(history);
       }
@@ -100,31 +100,33 @@ export function DashboardPage() {
   } else if (activeStatView === "Cancelled Shipments") {
     baseData = historicalShipments.filter(s => s.status === "Cancelled");
   } else if (activeStatView === "Deliveries Today") {
-    baseData = historicalShipments.filter(s => s.status === "Delivered");
+    const todayStr = new Date().toDateString();
+    baseData = historicalShipments.filter(s => {
+      const isCorrectStatus = ["Delivered", "Closed", "Returned"].includes(s.status);
+      const deliveryDate = new Date(s.originalData.deliveryDate || s.originalDate).toDateString();
+      return isCorrectStatus && deliveryDate === todayStr;
+    });
   } else if (activeStatView) {
     baseData = showHistory ? historicalShipments : currentShipments;
   }
-  
+
   // Apply search filter
   const tableData = baseData.filter((item) => {
     const matchesSearch =
       item.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.driver.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.vehicle.toLowerCase().includes(searchQuery.toLowerCase());
-    
+
     const matchesPod =
       podFilter === "all" ||
-      (podFilter === "Signed" &&
-        (item.podStatus === "Signed" || showHistory)) ||
-      (podFilter === "Pending" && !item.podStatus && !showHistory);
-    
+      item.podStatus === podFilter;
     let matchesDate = true;
     if (showHistory && dateFilter) {
       const filterDateStr = dateFilter.toDateString();
       const itemDateStr = new Date(item.originalDate).toDateString();
       matchesDate = filterDateStr === itemDateStr;
     }
-    
+
     return matchesSearch && matchesPod && matchesDate;
   });
 

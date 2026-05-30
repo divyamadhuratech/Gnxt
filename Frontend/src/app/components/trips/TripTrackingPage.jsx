@@ -14,7 +14,7 @@ const API_BASE_URL = "http://localhost:5000/api";
 export function TripTrackingPage() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("active");
   const [vehicleTypeFilter, setVehicleTypeFilter] = useState("all");
   const [showNotDispatched, setShowNotDispatched] = useState(false);
 
@@ -135,7 +135,10 @@ export function TripTrackingPage() {
       v.dealerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       v.currentLocation.toLowerCase().includes(searchQuery.toLowerCase());
     
-    const matchesStatus = statusFilter === "all" || v.status === statusFilter;
+    const matchesStatus =
+      statusFilter === "all" ? true :
+      statusFilter === "active" ? v.status !== "Idle" :
+      v.status === statusFilter;
     
     const matchesType =
       vehicleTypeFilter === "all" || v.vehicleType === vehicleTypeFilter;

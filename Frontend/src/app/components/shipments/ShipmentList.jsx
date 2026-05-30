@@ -43,14 +43,46 @@ export function ShipmentList() {
 
   const activeShipmentsOnly = useMemo(() => {
     const list = Array.isArray(shipmentData) ? shipmentData : [];
-    // Keep "Closed" in active list until vehicle physically returns ("Returned")
-    return list.filter(s => s.status !== "Returned" && s.status !== "Cancelled");
+    return list.filter(s => {
+      if (s.status === "Returned" || s.status === "Cancelled") return false;
+      if (s.status === "Delivered" || s.status === "Closed") {
+        const timestamp = s.deliveryDate || s.updatedAt || s.createdAt;
+        if (timestamp) {
+          const deliveryDate = new Date(timestamp);
+          const today = new Date();
+          if (
+            deliveryDate.getDate() !== today.getDate() ||
+            deliveryDate.getMonth() !== today.getMonth() ||
+            deliveryDate.getFullYear() !== today.getFullYear()
+          ) {
+            return false;
+          }
+        }
+      }
+      return true;
+    });
   }, [shipmentData]);
 
   const historyShipmentsOnly = useMemo(() => {
     const list = Array.isArray(shipmentData) ? shipmentData : [];
-    // History only shows completed trips (Returned) or Cancelled
-    return list.filter(s => s.status === "Returned" || s.status === "Cancelled");
+    return list.filter(s => {
+      if (s.status === "Returned" || s.status === "Cancelled") return true;
+      if (s.status === "Delivered" || s.status === "Closed") {
+        const timestamp = s.deliveryDate || s.updatedAt || s.createdAt;
+        if (timestamp) {
+          const deliveryDate = new Date(timestamp);
+          const today = new Date();
+          if (
+            deliveryDate.getDate() !== today.getDate() ||
+            deliveryDate.getMonth() !== today.getMonth() ||
+            deliveryDate.getFullYear() !== today.getFullYear()
+          ) {
+            return true;
+          }
+        }
+      }
+      return false;
+    });
   }, [shipmentData]);
 
   const filteredShipments = useMemo(() => {
@@ -66,7 +98,8 @@ export function ShipmentList() {
         (s.destinations?.[0]?.plantReferenceNumber && s.destinations[0].plantReferenceNumber.toLowerCase().includes(searchQuery.toLowerCase())) ||
         (s.destinations?.[0]?.lrNumber && s.destinations[0].lrNumber.toLowerCase().includes(searchQuery.toLowerCase()));
 
-      const matchesStatus = statusFilter === "all" || s.status === statusFilter;
+      const mappedStatus = s.status === "Closed" ? "Delivered" : s.status;
+      const matchesStatus = statusFilter === "all" || mappedStatus === statusFilter;
       const matchesDate = dateFilter === "all" || isWithinDateRange(s.createdAt, dateFilter);
 
       const podConfig = getPODConfig(s);
@@ -93,7 +126,8 @@ export function ShipmentList() {
       filtered: filteredShipments.length,
     };
     list.forEach((s) => {
-      if (counts[s.status] !== undefined) counts[s.status]++;
+      const mapped = s.status === "Closed" ? "Delivered" : s.status;
+      if (counts[mapped] !== undefined) counts[mapped]++;
     });
     return counts;
   }, [shipmentData, activeShipmentsOnly, filteredShipments.length]);
