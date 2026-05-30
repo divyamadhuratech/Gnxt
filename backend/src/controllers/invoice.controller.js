@@ -125,16 +125,16 @@ export const getInvoices = async (req, res) => {
       query.status = status;
     }
 
-    // ACTIVE FILTER: exclude Delivered invoices that are older than 1 minute
+    // ACTIVE FILTER: exclude Delivered invoices that are older than 2 minutes
     // (they have moved to history)
-    const oneMinuteAgo = new Date(Date.now() - 1 * 60 * 1000);
+    const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
     query.$nor = [
       {
         status: "Delivered",
         $or: [
-          { deliveredAt: { $lt: oneMinuteAgo } },
-          { deliveredAt: null, updatedAt: { $lt: oneMinuteAgo } },
-          { deliveredAt: { $exists: false }, updatedAt: { $lt: oneMinuteAgo } }
+          { deliveredAt: { $lt: twoMinutesAgo } },
+          { deliveredAt: null, updatedAt: { $lt: twoMinutesAgo } },
+          { deliveredAt: { $exists: false }, updatedAt: { $lt: twoMinutesAgo } }
         ]
       },
     ];
@@ -222,7 +222,7 @@ export const updateInvoiceStatus = async (req, res) => {
     }
 
     await Invoice.updateMany(
-      { _id: plantId },
+      { plantReferenceNumber: plantId },
       updateData
     );
 
@@ -324,14 +324,14 @@ export const getInvoiceHistory = async (req, res) => {
     page  = Number(page);
     limit = Number(limit);
 
-    const oneMinuteAgo = new Date(Date.now() - 1 * 60 * 1000);
+    const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
 
     const query = {
       status: "Delivered",
       $or: [
-        { deliveredAt: { $lt: oneMinuteAgo } },
-        { deliveredAt: null, updatedAt: { $lt: oneMinuteAgo } },
-        { deliveredAt: { $exists: false }, updatedAt: { $lt: oneMinuteAgo } }
+        { deliveredAt: { $lt: twoMinutesAgo } },
+        { deliveredAt: null, updatedAt: { $lt: twoMinutesAgo } },
+        { deliveredAt: { $exists: false }, updatedAt: { $lt: twoMinutesAgo } }
       ]
     };
 

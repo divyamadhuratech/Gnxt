@@ -95,7 +95,7 @@ export function StatDetailView({
           </SelectContent>
         </Select>
 
-        {showHistory && (
+        {showHistory && !["Active Shipments", "Pending Dispatch", "Cancelled Shipments", "Deliveries Today"].includes(activeStatView) && (
           <div className="flex items-center gap-2">
             <Popover>
               <PopoverTrigger asChild>
@@ -132,21 +132,23 @@ export function StatDetailView({
           </div>
         )}
 
-        <Button
-          variant={showHistory ? "default" : "outline"}
-          onClick={() => {
-            setShowHistory(!showHistory);
-            if (showHistory) setDateFilter(undefined);
-          }}
-          className={
-            showHistory
-              ? "bg-[#1d4ed8] text-white hover:bg-[#1e40af]"
-              : "bg-white"
-          }
-        >
-          <History className="w-4 h-4 mr-2" />
-          History
-        </Button>
+        {!["Active Shipments", "Pending Dispatch", "Cancelled Shipments", "Deliveries Today"].includes(activeStatView) && (
+          <Button
+            variant={showHistory ? "default" : "outline"}
+            onClick={() => {
+              setShowHistory(!showHistory);
+              if (showHistory) setDateFilter(undefined);
+            }}
+            className={
+              showHistory
+                ? "bg-[#1d4ed8] text-white hover:bg-[#1e40af]"
+                : "bg-white"
+            }
+          >
+            <History className="w-4 h-4 mr-2" />
+            History
+          </Button>
+        )}
       </div>
 
       {/* Data Table */}

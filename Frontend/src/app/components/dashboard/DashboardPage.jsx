@@ -92,13 +92,17 @@ export function DashboardPage() {
   });
 
   // Filter the current shipments dynamically based on selected card view
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setHours(0, 0, 0, 0);
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
   let baseData = [];
   if (activeStatView === "Active Shipments") {
-    baseData = currentShipments.filter(s => s.status === "In Transit");
+    baseData = currentShipments.filter(s => s.status === "In Transit" && new Date(s.originalDate) >= sevenDaysAgo);
   } else if (activeStatView === "Pending Dispatch") {
-    baseData = currentShipments.filter(s => s.status === "Pending");
+    baseData = currentShipments.filter(s => s.status === "Pending" && new Date(s.originalDate) >= sevenDaysAgo);
   } else if (activeStatView === "Cancelled Shipments") {
-    baseData = historicalShipments.filter(s => s.status === "Cancelled");
+    baseData = historicalShipments.filter(s => s.status === "Cancelled" && new Date(s.originalDate) >= sevenDaysAgo);
   } else if (activeStatView === "Deliveries Today") {
     const todayStr = new Date().toDateString();
     baseData = historicalShipments.filter(s => {

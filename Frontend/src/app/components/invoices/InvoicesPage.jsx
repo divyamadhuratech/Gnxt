@@ -31,9 +31,12 @@ export function InvoicesPage() {
   const fetchInvoices = async (
     search = "",
     status = "All",
-    page = 1
+    page = 1,
+    hideLoading = false
   ) => {
-    setLoading(true);
+    if (!hideLoading) {
+      setLoading(true);
+    }
     setError("");
 
     try {
@@ -72,6 +75,17 @@ export function InvoicesPage() {
     setCurrentPage(1);
     fetchInvoices(searchQuery, statusFilter, 1);
   }, [searchQuery, statusFilter]);
+
+  // Auto-refresh the invoices list every 30 seconds to move delivered plants to history seamlessly
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // Pass a flag to hide loading state if desired, or just use the current implementation 
+      // where it shows a spinner. If we want it completely seamless, we could add a "hideLoading" parameter 
+      // but for now we just call it.
+      fetchInvoices(searchQuery, statusFilter, currentPage, true);
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [searchQuery, statusFilter, currentPage]);
 
   const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];

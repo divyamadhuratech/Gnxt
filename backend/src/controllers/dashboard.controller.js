@@ -7,6 +7,9 @@ export const getDashboardStats = async (req, res) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
+    const sevenDaysAgo = new Date(today);
+    sevenDaysAgo.setDate(today.getDate() - 7);
+
     const [
       activeShipments,
       pendingPODs,
@@ -15,11 +18,11 @@ export const getDashboardStats = async (req, res) => {
       pendingDelivery,
       deliveriesToday
     ] = await Promise.all([
-      Shipment.countDocuments({ status: "In Transit" }),
-      Invoice.countDocuments({ status: "Pending" }), // Assuming Pending means POD needed or similar. Adjust if needed.
-      Shipment.countDocuments({ status: "Pending" }),
-      Shipment.countDocuments({ status: "Cancelled" }),
-      Shipment.countDocuments({ status: "In Transit" }), // Pending Delivery is often same as In Transit or specific state
+      Shipment.countDocuments({ status: "In Transit", createdAt: { $gte: sevenDaysAgo } }),
+      Invoice.countDocuments({ status: "Pending", createdAt: { $gte: sevenDaysAgo } }), // Assuming Pending means POD needed or similar. Adjust if needed.
+      Shipment.countDocuments({ status: "Pending", createdAt: { $gte: sevenDaysAgo } }),
+      Shipment.countDocuments({ status: "Cancelled", createdAt: { $gte: sevenDaysAgo } }),
+      Shipment.countDocuments({ status: "In Transit", createdAt: { $gte: sevenDaysAgo } }), // Pending Delivery is often same as In Transit or specific state
       Shipment.countDocuments({ status: { $in: ["Delivered", "Closed", "Returned"] }, deliveryDate: { $gte: today } })
     ]);
 
