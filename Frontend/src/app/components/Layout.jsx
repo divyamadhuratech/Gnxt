@@ -166,6 +166,13 @@ export function Layout() {
     return sectionMatch?.title || "Overview";
   };
 
+  const hasViewPermission = (moduleName) => {
+    if (user?.role === "Super Admin") return true;
+    if (!user?.permissions) return false;
+    const perm = user.permissions.find(p => p.module === moduleName);
+    return perm ? perm.view : false;
+  };
+
   return (
     <TooltipProvider>
       <div className="h-screen flex overflow-hidden bg-background">
@@ -218,35 +225,44 @@ export function Layout() {
 
           {/* Navigation */}
           <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-6 scroll-smooth">
-            {navSections.map((section) => (
-              <div key={section.title}>
-                {!sidebarCollapsed && (
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest px-3 mb-2">
-                    {section.title}
-                  </p>
-                )}
-                <div className="space-y-0.5">
-                  {section.items.map((item) => (
-                    <SidebarLink
-                      key={item.href}
-                      item={item}
-                      collapsed={sidebarCollapsed}
-                    />
-                  ))}
+            {navSections.map((section) => {
+              const visibleItems = section.items.filter(item => hasViewPermission(item.label));
+              if (visibleItems.length === 0) return null;
+
+              return (
+                <div key={section.title}>
+                  {!sidebarCollapsed && (
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-widest px-3 mb-2">
+                      {section.title}
+                    </p>
+                  )}
+                  <div className="space-y-0.5">
+                    {visibleItems.map((item) => (
+                      <SidebarLink
+                        key={item.href}
+                        item={item}
+                        collapsed={sidebarCollapsed}
+                      />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </nav>
 
           {/* Bottom Nav */}
           <div className="border-t border-border px-3 py-3 space-y-0.5 shrink-0">
-            {bottomNavItems.map((item) => (
-              <SidebarLink
-                key={item.href}
-                item={item}
-                collapsed={sidebarCollapsed}
-              />
-            ))}
+            {bottomNavItems.map((item) => {
+              if (item.label === "Settings" && user?.role !== "Super Admin") return null;
+              if (item.label !== "Settings" && !hasViewPermission(item.label)) return null;
+              return (
+                <SidebarLink
+                  key={item.href}
+                  item={item}
+                  collapsed={sidebarCollapsed}
+                />
+              );
+            })}
           </div>
 
           {/* Collapse Toggle */}
@@ -300,10 +316,12 @@ export function Layout() {
                     <User className="w-3.5 h-3.5" />
                     My Profile
                   </DropdownMenuItem>
-                  <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => navigate("/settings")}>
-                    <Settings className="w-3.5 h-3.5" />
-                    Settings
-                  </DropdownMenuItem>
+                  {user?.role === "Super Admin" && (
+                    <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => navigate("/settings")}>
+                      <Settings className="w-3.5 h-3.5" />
+                      Settings
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem className="gap-2 text-red-600 focus:text-red-600 cursor-pointer" onClick={logout}>
                     <LogOut className="w-3.5 h-3.5" />

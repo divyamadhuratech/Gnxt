@@ -3,14 +3,16 @@ import ActivityLog from "../models/ActivityLog.js";
 import bcrypt from "bcryptjs";
 
 const SUPER_ADMIN_MODULES = [
-  "Shipments & LR Management",
-  "Fleet & Vehicle Tracking",
-  "Invoice & Finance",
-  "Master Data (Dealers/Products)",
-  "User & Role Management",
-  "Reports & Analytics",
-  "Expenses",
+  "Dashboard",
+  "Shipments",
   "Trip Tracking",
+  "Invoices",
+  "Expenses",
+  "Vehicles",
+  "Drivers",
+  "Reports",
+  "Settings",
+  "Help & Support",
 ];
 
 const fullAccess = (modules) =>
@@ -46,7 +48,21 @@ export const createUser = async (req, res) => {
       return res.status(400).json({ success: false, message: "Username, email, password and role are required" });
     }
 
-    const permissions = role === "Super Admin" ? fullAccess(SUPER_ADMIN_MODULES) : [];
+    let permissions = [];
+    if (role === "Super Admin") {
+      permissions = fullAccess(SUPER_ADMIN_MODULES);
+    } else {
+      const existingUser = await User.findOne({ role, permissions: { $exists: true, $not: { $size: 0 } } });
+      if (existingUser) {
+        permissions = existingUser.permissions.map(p => ({
+          module: p.module,
+          view: p.view,
+          create: p.create,
+          edit: p.edit,
+          delete: p.delete
+        }));
+      }
+    }
 
     const parts = username.trim().split(" ");
     const avatar = parts.map((p) => p[0]?.toUpperCase()).join("").slice(0, 2);

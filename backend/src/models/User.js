@@ -31,8 +31,8 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ["Super Admin", "Branch Manager", "Logistics Staff", "Viewer"],
-    default: "Logistics Staff",
+    enum: ["Super Admin", "Billing Executive (Invoice Operator)", "Operations Supervisor", "Accounts Executive"],
+    default: "Billing Executive (Invoice Operator)",
   },
   branch: {
     type: String,

@@ -49,21 +49,23 @@ import { Checkbox } from "../ui/checkbox";
 const API = import.meta.env?.VITE_API_URL || "http://localhost:5000/api";
 
 const MODULES = [
-  "Shipment & LR Management",
-  "Fleet & Vehicle Tracking",
-  "Invoice & Finance",
-  "Master Data (Dealers/Products)",
-  "User & Role Management",
-  "Reports & Analytics",
-  "Expenses",
+  "Dashboard",
+  "Shipments",
   "Trip Tracking",
+  "Invoices",
+  "Expenses",
+  "Vehicles",
+  "Drivers",
+  "Reports",
+  "Settings",
+  "Help & Support",
 ];
 
 const ROLES = [
   { name: "Super Admin", desc: "Full system access including user management" },
-  { name: "Branch Manager", desc: "Manage operations for assigned branches only" },
-  { name: "Logistics Staff", desc: "Create and update LR numbers, manage local delivery" },
-  { name: "Viewer", desc: "Read-only access across assigned modules" }
+  { name: "Billing Executive (Invoice Operator)", desc: "Manage billing and invoices" },
+  { name: "Operations Supervisor", desc: "Manage logistics and vehicle operations" },
+  { name: "Accounts Executive", desc: "Manage financial data and reporting" }
 ];
 
 const BRANCHES = ["All Branches", "Mumbai Hub", "Delhi Hub", "Chennai Hub", "Kolkata Hub", "Bangalore Hub"];
@@ -145,28 +147,50 @@ export function SettingsPage() {
     username: "",
     email: "",
     password: "",
-    role: "Logistics Staff",
+    role: "Billing Executive (Invoice Operator)",
     branch: "Mumbai Hub",
   });
   const [formError, setFormError] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
-    fetchUsers();
-    fetchLogs();
-    initializePermissions();
-  }, [token]);
+    if (currentUser?.role === "Super Admin") {
+      fetchUsers();
+      fetchLogs();
+    }
+  }, [token, currentUser]);
 
-  const initializePermissions = () => {
+  if (currentUser?.role !== "Super Admin") {
+    return (
+      <div className="flex flex-col items-center justify-center h-[80vh] bg-slate-50/50">
+        <ShieldAlert className="w-16 h-16 text-red-500 mb-4 animate-bounce" />
+        <h2 className="text-2xl font-bold text-slate-800 tracking-tight">Access Denied</h2>
+        <p className="text-slate-500 mt-2">You do not have permission to view the Settings page.</p>
+        <Button onClick={() => window.history.back()} className="mt-6 bg-[#1d4ed8] hover:bg-blue-800 text-white rounded-xl">
+          Go Back
+        </Button>
+      </div>
+    );
+  }
+
+  const initializePermissions = (fetchedUsers) => {
     const defaultPerms = {};
     ROLES.forEach((role) => {
-      defaultPerms[role.name] = MODULES.map((m) => ({
-        module: m,
-        view: role.name === "Super Admin",
-        create: role.name === "Super Admin",
-        edit: role.name === "Super Admin",
-        delete: role.name === "Super Admin",
-      }));
+      const existingUser = fetchedUsers.find(u => u.role === role.name && u.permissions?.length > 0);
+      
+      defaultPerms[role.name] = MODULES.map((m) => {
+        if (existingUser) {
+          const existingPerm = existingUser.permissions.find(p => p.module === m);
+          if (existingPerm) return existingPerm;
+        }
+        return {
+          module: m,
+          view: role.name === "Super Admin",
+          create: role.name === "Super Admin",
+          edit: role.name === "Super Admin",
+          delete: role.name === "Super Admin",
+        };
+      });
     });
     setRolePermissions(defaultPerms);
   };
@@ -180,6 +204,7 @@ export function SettingsPage() {
       const data = await res.json();
       if (data.success) {
         setUsers(data.data);
+        initializePermissions(data.data);
       }
     } catch (err) {
       console.error("Error fetching users:", err);
@@ -212,7 +237,7 @@ export function SettingsPage() {
       username: "",
       email: "",
       password: "",
-      role: "Logistics Staff",
+      role: "Billing Executive (Invoice Operator)",
       branch: "Mumbai Hub",
     });
     setFormError("");
@@ -362,6 +387,28 @@ export function SettingsPage() {
     });
   };
 
+  const handleSelectAllForRow = (moduleName, value) => {
+    if (selectedRole === "Super Admin") return;
+    setRolePermissions((prev) => {
+      const updated = { ...prev };
+      updated[selectedRole] = updated[selectedRole].map((m) =>
+        m.module === moduleName ? { ...m, view: value, create: value, edit: value, delete: value } : m
+      );
+      return updated;
+    });
+  };
+
+  const handleSelectAllGlobal = (value) => {
+    if (selectedRole === "Super Admin") return;
+    setRolePermissions((prev) => {
+      const updated = { ...prev };
+      updated[selectedRole] = updated[selectedRole].map((m) => ({
+        ...m, view: value, create: value, edit: value, delete: value
+      }));
+      return updated;
+    });
+  };
+
   const handleSavePermissions = async () => {
     setSavingPermissions(true);
     // Find all users with the selected role and sync their permissions
@@ -397,6 +444,16 @@ export function SettingsPage() {
       u.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       u.role?.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const isAllGlobalSelected = MODULES.every(mod => {
+    const perm = rolePermissions[selectedRole]?.find(m => m.module === mod);
+    return perm && perm.view && perm.create && perm.edit && perm.delete;
+  });
+
+  const isRowSelected = (mod) => {
+    const perm = rolePermissions[selectedRole]?.find(m => m.module === mod);
+    return perm && perm.view && perm.create && perm.edit && perm.delete;
+  };
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
@@ -652,13 +709,25 @@ export function SettingsPage() {
                   <p className="text-xs text-slate-500 mt-1">Configure what this role can see and do in the system.</p>
                 </div>
                 {selectedRole !== "Super Admin" && currentUser?.role === "Super Admin" && (
-                  <Button
-                    onClick={handleSavePermissions}
-                    disabled={savingPermissions}
-                    className="bg-[#1d4ed8] hover:bg-blue-800 text-white rounded-xl shadow-sm px-4 py-2"
-                  >
-                    {savingPermissions ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Changes"}
-                  </Button>
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="selectAllGlobal"
+                        checked={isAllGlobalSelected}
+                        onCheckedChange={(val) => handleSelectAllGlobal(!!val)}
+                      />
+                      <label htmlFor="selectAllGlobal" className="text-sm font-medium text-slate-700 cursor-pointer select-none">
+                        Select All
+                      </label>
+                    </div>
+                    <Button
+                      onClick={handleSavePermissions}
+                      disabled={savingPermissions}
+                      className="bg-[#1d4ed8] hover:bg-blue-800 text-white rounded-xl shadow-sm px-4 py-2"
+                    >
+                      {savingPermissions ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Changes"}
+                    </Button>
+                  </div>
                 )}
               </div>
 
@@ -680,6 +749,7 @@ export function SettingsPage() {
                       <TableHead className="text-xs font-semibold text-slate-500 uppercase h-10 text-center">Create</TableHead>
                       <TableHead className="text-xs font-semibold text-slate-500 uppercase h-10 text-center">Edit</TableHead>
                       <TableHead className="text-xs font-semibold text-slate-500 uppercase h-10 text-center">Delete</TableHead>
+                      <TableHead className="text-xs font-semibold text-slate-500 uppercase h-10 text-center">Select All</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -720,6 +790,13 @@ export function SettingsPage() {
                               checked={selectedRole === "Super Admin" || perm.delete}
                               disabled={selectedRole === "Super Admin" || currentUser?.role !== "Super Admin"}
                               onCheckedChange={(val) => handlePermissionChange(mod, "delete", !!val)}
+                            />
+                          </TableCell>
+                          <TableCell className="text-center py-3.5 border-l border-slate-50">
+                            <Checkbox
+                              checked={selectedRole === "Super Admin" || isRowSelected(mod)}
+                              disabled={selectedRole === "Super Admin" || currentUser?.role !== "Super Admin"}
+                              onCheckedChange={(val) => handleSelectAllForRow(mod, !!val)}
                             />
                           </TableCell>
                         </TableRow>
@@ -798,15 +875,13 @@ export function SettingsPage() {
                   <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider h-12">Timestamp</TableHead>
                   <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider h-12">User</TableHead>
                   <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider h-12">Action</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider h-12">Target/Details</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider h-12">IP Address</TableHead>
                   <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider h-12">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {getFilteredLogs().length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="h-40 text-center text-slate-400 text-sm">
+                    <TableCell colSpan={4} className="h-40 text-center text-slate-400 text-sm">
                       No matching activity logs found.
                     </TableCell>
                   </TableRow>
@@ -829,8 +904,6 @@ export function SettingsPage() {
                           {log.action}
                         </span>
                       </TableCell>
-                      <TableCell className="text-sm text-slate-600 capitalize">{log.target || "System"}</TableCell>
-                      <TableCell className="text-sm text-slate-500 font-mono">{log.ipAddress}</TableCell>
                       <TableCell className="py-3.5">
                         <span
                           className={`text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 ${

@@ -297,29 +297,6 @@ export function HelpSupportPage() {
             </div>
           </div>
 
-          {/* Secure Mail Channel Details */}
-          <div className="bg-white border border-border rounded-2xl p-6 space-y-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-            <h4 className="text-sm font-semibold text-foreground">Secure Mail Protocol</h4>
-            
-            <div className="space-y-3.5 text-xs text-muted-foreground">
-              <div className="flex justify-between py-1.5 border-b border-border">
-                <span>Sender Server</span>
-                <span className="font-semibold text-foreground">smtp.gmail.com</span>
-              </div>
-              <div className="flex justify-between py-1.5 border-b border-border">
-                <span>Sender Address</span>
-                <span className="font-semibold text-foreground">divyamadhuratech@gmail.com</span>
-              </div>
-              <div className="flex justify-between py-1.5 border-b border-border">
-                <span>Receiver Address</span>
-                <span className="font-semibold text-foreground">support@madhuratechnologies.com</span>
-              </div>
-              <div className="flex justify-between py-1.5 border-b border-border">
-                <span>Protocol Security</span>
-                <span className="font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">SSL Secure (Port 465)</span>
-              </div>
-            </div>
-          </div>
 
         </div>
 
