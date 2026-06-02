@@ -3,7 +3,7 @@ import express from "express";
 import {
   getInvoices,
   uploadInvoiceSheet,
-   updateInvoiceStatus,
+  updateInvoiceStatus,
   toggleInvoiceCheck,
   deleteInvoice,
   getInvoiceHistory

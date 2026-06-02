@@ -3,7 +3,7 @@ import { getShipmentStats, getFilterOptions } from "../controllers/report.contro
 
 const router = express.Router();
 
-router.get("/stats",   getShipmentStats);
+router.get("/stats", getShipmentStats);
 router.get("/filters", getFilterOptions);
 
 export default router;

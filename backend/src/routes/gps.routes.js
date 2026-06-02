@@ -18,10 +18,10 @@ router.get("/all", getAllVehicleLocations);
 
 // Per-vehicle
 router.get("/location/:vehicleNo", getVehicleLocation);
-router.get("/history/:vehicleNo",  getVehicleHistory);
+router.get("/history/:vehicleNo", getVehicleHistory);
 
 // Per-shipment
-router.get("/events/:shipmentId",         getTripEvents);
+router.get("/events/:shipmentId", getTripEvents);
 router.get("/shipment-track/:shipmentId", getShipmentTracking);
 
 export default router;

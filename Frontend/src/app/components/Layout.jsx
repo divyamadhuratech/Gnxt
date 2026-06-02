@@ -212,7 +212,7 @@ export function Layout() {
               )}
             </div>
 
-           
+
             {!sidebarCollapsed && (
               <button
                 onClick={() => setSidebarCollapsed(true)}

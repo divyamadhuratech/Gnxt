@@ -5,8 +5,8 @@ const API = import.meta.env?.VITE_API_URL || "http://localhost:5000/api";
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser]       = useState(null);
-  const [token, setToken]     = useState(() => localStorage.getItem("gnxt_token"));
+  const [user, setUser] = useState(null);
+  const [token, setToken] = useState(() => localStorage.getItem("gnxt_token"));
   const [loading, setLoading] = useState(true);
 
   /* ── Verify token on mount ── */
@@ -44,7 +44,7 @@ export function AuthProvider({ children }) {
       await fetch(`${API}/auth/logout`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
-      }).catch(() => {});
+      }).catch(() => { });
     }
     localStorage.removeItem("gnxt_token");
     setToken(null);

@@ -22,7 +22,7 @@ export function PlantRow({
   onDeleted,
 }) {
   const [openPlants, setOpenPlants] = useState(false);
-  const sc  = statusConfig[shipment.status] || { label: shipment.status || "N/A", className: "bg-gray-50 text-gray-700 border-gray-200" };
+  const sc = statusConfig[shipment.status] || { label: shipment.status || "N/A", className: "bg-gray-50 text-gray-700 border-gray-200" };
   const pod = getPODConfig(shipment);
 
   const dest = shipment.destinations?.[0] ?? {};
@@ -39,11 +39,11 @@ export function PlantRow({
     .flatMap((d) => (d.invoiceIds ?? []).filter((inv) => typeof inv === "object"));
   const firstPopulated = allPopulatedInvoices[0] ?? null;
 
-  const customerName     = dest.customerName     || firstPopulated?.customerName || "—";
-  const deliveryLocation = dest.deliveryLocation || firstPopulated?.location     || "—";
+  const customerName = dest.customerName || firstPopulated?.customerName || "—";
+  const deliveryLocation = dest.deliveryLocation || firstPopulated?.location || "—";
   // Items & Weight
   const totalWeightKg = shipment.totalWeightKg ?? 0;
-  const totalQuantity = shipment.totalQuantity  ?? 0;
+  const totalQuantity = shipment.totalQuantity ?? 0;
 
   // Date
   const date = shipment.createdAt
@@ -172,9 +172,8 @@ export function PlantRow({
       {/* POD */}
       <TableCell>
         <span
-          className={`inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full border ${pod.className}${
-            shipment.status === "Delivered" ? " cursor-pointer hover:bg-emerald-100 hover:border-emerald-300 transition-colors" : ""
-          }`}
+          className={`inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full border ${pod.className}${shipment.status === "Delivered" ? " cursor-pointer hover:bg-emerald-100 hover:border-emerald-300 transition-colors" : ""
+            }`}
           role={shipment.status === "Delivered" ? "button" : undefined}
           onClick={shipment.status === "Delivered" ? () => { setSelectedShipment(shipment); setViewSheetOpen(true); } : undefined}
         >
