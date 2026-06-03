@@ -10,6 +10,7 @@ export function PODSection({
   onSaveDestinationPOD,
   onDestinationDeliverySuccess,
   setPodViewImage,
+  canEdit = true,
 }) {
   const destinations = shipment?.destinations ?? [];
 
@@ -28,6 +29,7 @@ export function PODSection({
             onDeliverySuccess={onDestinationDeliverySuccess}
             setPodViewImage={setPodViewImage}
             shipmentStatus={shipment.status}
+            canEdit={canEdit}
           />
         ))}
       </div>
@@ -44,6 +46,7 @@ function DestinationPODCard({
   onDeliverySuccess,
   setPodViewImage,
   shipmentStatus = "Pending",
+  canEdit = true,
 }) {
   const [receiverName, setReceiverName] = useState(dest.podReceiverName || "");
   const [remarks, setRemarks] = useState(dest.podRemarks || "");
@@ -56,7 +59,7 @@ function DestinationPODCard({
 
   // Decide view modes based on shipmentStatus
   const isPending = shipmentStatus === "Pending";
-  const isClosed = shipmentStatus === "Closed" || shipmentStatus === "Cancelled" || shipmentStatus === "Returned";
+  const isClosed = shipmentStatus === "Closed" || shipmentStatus === "Cancelled" || shipmentStatus === "Returned" || !canEdit;
 
   const lrDisplay = dest.lrNumber || `LR-TEMP-${index + 1}`;
 

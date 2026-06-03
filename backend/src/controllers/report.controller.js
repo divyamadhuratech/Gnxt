@@ -27,7 +27,10 @@ export const getShipmentStats = async (req, res) => {
         startDate.setDate(now.getDate() - 90);
       }
 
-      query.dispatchDate = { $gte: startDate };
+      query.$or = [
+        { dispatchDate: { $gte: startDate } },
+        { status: "Pending", createdAt: { $gte: startDate } }
+      ];
     }
 
     // ── Vehicle Filter ────────────────────────────────
@@ -48,8 +51,8 @@ export const getShipmentStats = async (req, res) => {
     // ── Execute Aggregation ───────────────────────────
     const [total, active, completed] = await Promise.all([
       Shipment.countDocuments(query),
-      Shipment.countDocuments({ ...query, status: "In Transit" }),
-      Shipment.countDocuments({ ...query, status: "Delivered" }),
+      Shipment.countDocuments({ ...query, status: { $in: ["Pending", "In Transit"] } }),
+      Shipment.countDocuments({ ...query, status: { $in: ["Delivered", "Closed", "Returned"] } }),
     ]);
 
     // Trend calculation (Dummy logic for now, could be improved by comparing with previous period)

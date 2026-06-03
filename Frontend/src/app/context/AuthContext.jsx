@@ -51,8 +51,16 @@ export function AuthProvider({ children }) {
     setUser(null);
   }, [token]);
 
+  const hasPermission = useCallback((moduleName, action) => {
+    if (user?.role === "Super Admin") return true;
+    if (!user?.permissions) return false;
+    const perm = user.permissions.find(p => p.module?.toLowerCase() === moduleName?.toLowerCase());
+    if (!perm) return false;
+    return !!perm[action?.toLowerCase()];
+  }, [user]);
+
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ user, token, loading, login, logout, isAuthenticated: !!user, hasPermission }}>
       {children}
     </AuthContext.Provider>
   );

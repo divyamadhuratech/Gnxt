@@ -5,6 +5,17 @@ import InvoiceTable from "./InvoiceTable";
 import { AlertCircle, X } from "lucide-react";
 import { Button } from "../ui/button";
 import InvoiceHistorySheet from "./InvoiceHistorySheet";
+import { useAuth } from "../../context/AuthContext";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "../ui/dialog";
 
 const API_BASE_URL =
   import.meta.env?.VITE_API_URL || "http://localhost:5000/api";
@@ -12,6 +23,11 @@ const API_BASE_URL =
 const itemsPerPage = 15;
 
 export function InvoicesPage() {
+  const { hasPermission } = useAuth();
+  const canCreate = hasPermission("Invoices", "create");
+  const canEdit = hasPermission("Invoices", "edit");
+  const canDelete = hasPermission("Invoices", "delete");
+
   const [searchQuery, setSearchQuery] = useState("");
   const [invoices, setInvoices] = useState([]);
   const [statusFilter, setStatusFilter] = useState("All");
@@ -27,6 +43,17 @@ export function InvoicesPage() {
 
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
+
+  // Manual Add Invoice modal states
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [newInvoiceData, setNewInvoiceData] = useState({
+    plantNumber: "",
+    customerName: "",
+    location: "",
+    invoiceNumber: "",
+    invoiceDate: "",
+  });
+  const [submitting, setSubmitting] = useState(false);
 
   const fetchInvoices = async (
     search = "",
@@ -76,12 +103,9 @@ export function InvoicesPage() {
     fetchInvoices(searchQuery, statusFilter, 1);
   }, [searchQuery, statusFilter]);
 
-  // Auto-refresh the invoices list every 30 seconds to move delivered plants to history seamlessly
+  // Auto-refresh the invoices list every 30 seconds to move delivered/cancelled plants to history seamlessly
   useEffect(() => {
     const interval = setInterval(() => {
-      // Pass a flag to hide loading state if desired, or just use the current implementation 
-      // where it shows a spinner. If we want it completely seamless, we could add a "hideLoading" parameter 
-      // but for now we just call it.
       fetchInvoices(searchQuery, statusFilter, currentPage, true);
     }, 30000);
     return () => clearInterval(interval);
@@ -123,7 +147,6 @@ export function InvoicesPage() {
       const result = await res.json();
 
       if (!res.ok) {
-        // Check if it's a validation error
         if (result.validationError) {
           setValidationErrorData({
             missingColumns: result.missingColumns || [],
@@ -165,6 +188,59 @@ export function InvoicesPage() {
     );
   };
 
+  const handleStatusUpdated = (plantNumber, newStatus) => {
+    setInvoices((prev) =>
+      prev.map((plant) => {
+        if (plant.plantNumber === plantNumber) {
+          return { ...plant, status: newStatus };
+        }
+        return plant;
+      })
+    );
+  };
+
+  const handleAddInvoice = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/invoices`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(newInvoiceData),
+      });
+
+      const result = await res.json();
+
+      if (!res.ok) {
+        throw new Error(result.message || "Failed to add invoice");
+      }
+
+      setSuccess("✅ Invoice added successfully");
+      setAddModalOpen(false);
+      setNewInvoiceData({
+        plantNumber: "",
+        customerName: "",
+        location: "",
+        invoiceNumber: "",
+        invoiceDate: "",
+      });
+      fetchInvoices(searchQuery, statusFilter, currentPage);
+
+      setTimeout(() => {
+        setSuccess("");
+      }, 4000);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="h-full flex flex-col p-6 gap-6">
       <InvoiceHeader
@@ -172,6 +248,8 @@ export function InvoicesPage() {
         uploading={uploading}
         onFileUpload={handleFileUpload}
         onHistoryClick={() => setHistoryOpen(true)}
+        onAddClick={() => setAddModalOpen(true)}
+        canCreate={canCreate}
       />
 
       {error && (
@@ -203,7 +281,6 @@ export function InvoicesPage() {
             </Button>
           </div>
 
-          {/* Checklist comparisons */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3.5 pt-2">
             {[
               {
@@ -267,7 +344,6 @@ export function InvoicesPage() {
             })}
           </div>
 
-          {/* Detected Headers */}
           {validationErrorData.headers?.length > 0 && (
             <div className="space-y-2 pt-2 border-t border-red-200/50">
               <span className="text-xs font-semibold text-slate-700 block">
@@ -309,12 +385,108 @@ export function InvoicesPage() {
         total={total}
         onPageChange={setCurrentPage}
         onDeleted={handleDeleted}
+        onStatusUpdated={handleStatusUpdated}
+        canEdit={canEdit}
+        canDelete={canDelete}
       />
 
       <InvoiceHistorySheet 
         open={historyOpen}
         onOpenChange={setHistoryOpen}
       />
+
+      {/* Manual Add Invoice Modal */}
+      <Dialog open={addModalOpen} onOpenChange={setAddModalOpen}>
+        <DialogContent className="sm:max-w-md bg-white border border-border shadow-lg rounded-xl p-6">
+          <DialogHeader className="border-b border-border pb-3 mb-4">
+            <DialogTitle className="text-lg font-bold text-foreground">Add New Invoice</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground mt-1">
+              Manually record a new customer invoice record.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleAddInvoice} className="space-y-4">
+            <div className="grid grid-cols-1 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="plantNumber" className="text-xs font-semibold text-slate-700">Plant No. *</Label>
+                <Input
+                  id="plantNumber"
+                  required
+                  placeholder="e.g. 1109461889"
+                  value={newInvoiceData.plantNumber}
+                  onChange={(e) => setNewInvoiceData(prev => ({ ...prev, plantNumber: e.target.value }))}
+                  className="h-9 bg-slate-50 border-border text-sm"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="customerName" className="text-xs font-semibold text-slate-700">Customer Name *</Label>
+                <Input
+                  id="customerName"
+                  required
+                  placeholder="e.g. SUNLUBE MARKETING"
+                  value={newInvoiceData.customerName}
+                  onChange={(e) => setNewInvoiceData(prev => ({ ...prev, customerName: e.target.value }))}
+                  className="h-9 bg-slate-50 border-border text-sm"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="location" className="text-xs font-semibold text-slate-700">Location</Label>
+                <Input
+                  id="location"
+                  placeholder="e.g. Kollam"
+                  value={newInvoiceData.location}
+                  onChange={(e) => setNewInvoiceData(prev => ({ ...prev, location: e.target.value }))}
+                  className="h-9 bg-slate-50 border-border text-sm"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="invoiceNumber" className="text-xs font-semibold text-slate-700">Invoice Number *</Label>
+                <Input
+                  id="invoiceNumber"
+                  required
+                  placeholder="e.g. 9354794370"
+                  value={newInvoiceData.invoiceNumber}
+                  onChange={(e) => setNewInvoiceData(prev => ({ ...prev, invoiceNumber: e.target.value }))}
+                  className="h-9 bg-slate-50 border-border text-sm"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="invoiceDate" className="text-xs font-semibold text-slate-700">Invoice Date *</Label>
+                <Input
+                  id="invoiceDate"
+                  type="date"
+                  required
+                  value={newInvoiceData.invoiceDate}
+                  onChange={(e) => setNewInvoiceData(prev => ({ ...prev, invoiceDate: e.target.value }))}
+                  className="h-9 bg-slate-50 border-border text-sm"
+                />
+              </div>
+            </div>
+
+            <DialogFooter className="pt-4 border-t border-border mt-4 flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setAddModalOpen(false)}
+                className="h-9 text-xs border-border"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={submitting}
+                className="h-9 text-xs bg-[#1d4ed8] hover:bg-[#1e40af] text-white font-medium"
+              >
+                {submitting ? "Adding..." : "Add Invoice"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

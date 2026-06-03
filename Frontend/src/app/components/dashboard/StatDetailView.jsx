@@ -80,22 +80,24 @@ export function StatDetailView({
           />
         </div>
 
-        <Select value={podFilter} onValueChange={setPodFilter}>
-          <SelectTrigger className="w-[160px] h-9 bg-white border-border">
-            <div className="flex items-center gap-2">
-              <FileCheck className="w-3.5 h-3.5 text-muted-foreground" />
-              <SelectValue placeholder="POD Status" />
-            </div>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All PODs</SelectItem>
-            <SelectItem value="Signed">Signed</SelectItem>
-            <SelectItem value="Pending">Pending</SelectItem>
-            <SelectItem value="Not Generated">Not Generated</SelectItem>
-          </SelectContent>
-        </Select>
+        {!["Active Shipments", "Pending Dispatch", "Cancelled Invoices"].includes(activeStatView) && (
+          <Select value={podFilter} onValueChange={setPodFilter}>
+            <SelectTrigger className="w-[160px] h-9 bg-white border-border">
+              <div className="flex items-center gap-2">
+                <FileCheck className="w-3.5 h-3.5 text-muted-foreground" />
+                <SelectValue placeholder="POD Status" />
+              </div>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All PODs</SelectItem>
+              <SelectItem value="Signed">Signed</SelectItem>
+              <SelectItem value="Pending">Pending</SelectItem>
+              <SelectItem value="Not Generated">Not Generated</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
 
-        {showHistory && !["Active Shipments", "Pending Dispatch", "Cancelled Shipments", "Deliveries Today"].includes(activeStatView) && (
+        {showHistory && !["Active Shipments", "Pending Dispatch", "Cancelled Invoices", "Deliveries Today"].includes(activeStatView) && (
           <div className="flex items-center gap-2">
             <Popover>
               <PopoverTrigger asChild>
@@ -132,7 +134,7 @@ export function StatDetailView({
           </div>
         )}
 
-        {!["Active Shipments", "Pending Dispatch", "Cancelled Shipments", "Deliveries Today"].includes(activeStatView) && (
+        {!["Active Shipments", "Pending Dispatch", "Cancelled Invoices", "Deliveries Today"].includes(activeStatView) && (
           <Button
             variant={showHistory ? "default" : "outline"}
             onClick={() => {
@@ -200,15 +202,14 @@ export function StatDetailView({
                   </>
                 )}
 
-                {/* 4. Cancelled Shipments */}
-                {activeStatView === "Cancelled Shipments" && (
+                {/* 4. Cancelled Invoices */}
+                {activeStatView === "Cancelled Invoices" && (
                   <>
                     <TableHead className="pl-5">Invoice No</TableHead>
                     <TableHead>Date</TableHead>
                     <TableHead>Customer</TableHead>
                     <TableHead>Location</TableHead>
-                    <TableHead>Reason</TableHead>
-                    <TableHead className="pr-5">Cancelled By</TableHead>
+                    <TableHead className="pr-5">Status</TableHead>
                   </>
                 )}
 
@@ -256,62 +257,88 @@ export function StatDetailView({
             <TableBody>
               {tableData.map((item, idx) => (
                 <TableRow key={idx} className="group cursor-default">
-                  <TableCell className="pl-5 w-[150px]">
-                    <span className="font-medium text-[#1d4ed8]">{item.id}</span>
-                  </TableCell>
-                  <TableCell className="w-[200px]">
-                    <p className="text-sm text-foreground">Dealer Name</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{item.destination}</p>
-                  </TableCell>
-                  <TableCell className="w-[150px]">
-                    <div className="flex items-center gap-2">
-                      <Package className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                      <span className="text-sm text-foreground">450 kg</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="w-[160px]">
-                    <p className="text-sm text-foreground">{item.driver}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">+91 98765 43210</p>
-                  </TableCell>
-                  <TableCell className="w-[160px]">
-                    <div className="flex items-center gap-2">
-                      <div>
-                        <p className="text-sm text-foreground">{item.vehicle}</p>
-                        <Badge
-                          variant="outline"
-                          className="mt-0.5 text-[10px] px-1.5 py-0 rounded-sm border-blue-200 text-blue-600 bg-blue-50/60"
+                  {activeStatView === "Cancelled Invoices" ? (
+                    <>
+                      <TableCell className="pl-5">
+                        <span className="font-medium text-[#1d4ed8]">{item.id}</span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-xs text-slate-600">
+                          {item.originalDate ? format(new Date(item.originalDate), "dd MMM yyyy") : "—"}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-sm font-semibold text-slate-800">
+                        {item.customer}
+                      </TableCell>
+                      <TableCell className="text-sm text-slate-600">
+                        {item.location}
+                      </TableCell>
+                      <TableCell className="pr-5">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-red-100 text-red-700 border border-red-200">
+                          Cancelled
+                        </span>
+                      </TableCell>
+                    </>
+                  ) : (
+                    <>
+                      <TableCell className="pl-5 w-[150px]">
+                        <span className="font-medium text-[#1d4ed8]">{item.id}</span>
+                      </TableCell>
+                      <TableCell className="w-[200px]">
+                        <p className="text-sm text-foreground">Dealer Name</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{item.destination}</p>
+                      </TableCell>
+                      <TableCell className="w-[150px]">
+                        <div className="flex items-center gap-2">
+                          <Package className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                          <span className="text-sm text-foreground">450 kg</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="w-[160px]">
+                        <p className="text-sm text-foreground">{item.driver}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">+91 98765 43210</p>
+                      </TableCell>
+                      <TableCell className="w-[160px]">
+                        <div className="flex items-center gap-2">
+                          <div>
+                            <p className="text-sm text-foreground">{item.vehicle}</p>
+                            <Badge
+                              variant="outline"
+                              className="mt-0.5 text-[10px] px-1.5 py-0 rounded-sm border-blue-200 text-blue-600 bg-blue-50/60"
+                            >
+                              Own
+                            </Badge>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="w-[110px]">
+                        <span className="text-sm text-muted-foreground">{item.eta || "Today"}</span>
+                      </TableCell>
+                      <TableCell className="w-[110px]">
+                        {item.podConfig ? (
+                          <span className={`inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full border ${item.podConfig.className}`}>
+                            {item.podConfig.icon ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
+                            {item.podConfig.label}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full border bg-amber-50 text-amber-700 border-amber-200">
+                            <Clock className="w-3 h-3" />
+                            Pending
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="w-[60px] pr-5 text-center">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => onView && onView(item)}
+                          className="w-8 h-8 text-muted-foreground hover:text-foreground"
                         >
-                          Own
-                        </Badge>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell className="w-[110px]">
-                    <span className="text-sm text-muted-foreground">{item.eta || "Today"}</span>
-                  </TableCell>
-                  <TableCell className="w-[110px]">
-                    {item.podConfig ? (
-                      <span className={`inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full border ${item.podConfig.className}`}>
-                        {item.podConfig.icon ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
-                        {item.podConfig.label}
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full border bg-amber-50 text-amber-700 border-amber-200">
-                        <Clock className="w-3 h-3" />
-                        Pending
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell className="w-[60px] pr-5 text-center">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => onView && onView(item)}
-                      className="w-8 h-8 text-muted-foreground hover:text-foreground"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </Button>
-                  </TableCell>
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                      </TableCell>
+                    </>
+                  )}
                 </TableRow>
               ))}
               {tableData.length === 0 && (

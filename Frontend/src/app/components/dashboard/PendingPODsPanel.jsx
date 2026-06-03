@@ -1,9 +1,11 @@
 import { useNavigate } from "react-router";
 import { Truck, FileSpreadsheet, PlusCircle, CheckCircle2, ChevronRight } from "lucide-react";
 import { Button } from "../ui/button";
+import { useAuth } from "../../context/AuthContext";
 
 export function PendingPODsPanel() {
   const navigate = useNavigate();
+  const { hasPermission } = useAuth();
 
   const steps = [
     {
@@ -81,13 +83,15 @@ export function PendingPODsPanel() {
       </div>
 
       {/* Action Button */}
-      <Button
-        onClick={() => navigate("/shipments", { state: { openCreate: true } })}
-        className="w-full mt-4 bg-[#1d4ed8] hover:bg-[#1e40af] text-white shadow-sm font-medium flex items-center justify-center gap-1.5 h-9 group transition-all duration-200 rounded-lg border-none cursor-pointer text-xs"
-      >
-        <span>Create New Shipment</span>
-        <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-      </Button>
+      {hasPermission("Shipments", "create") && (
+        <Button
+          onClick={() => navigate("/shipments", { state: { openCreate: true } })}
+          className="w-full mt-4 bg-[#1d4ed8] hover:bg-[#1e40af] text-white shadow-sm font-medium flex items-center justify-center gap-1.5 h-9 group transition-all duration-200 rounded-lg border-none cursor-pointer text-xs"
+        >
+          <span>Create New Shipment</span>
+          <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+        </Button>
+      )}
     </div>
   );
 }

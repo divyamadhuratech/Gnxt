@@ -9,8 +9,9 @@ import {
 } from "lucide-react";
 import StatusBadge from "./StatusBadge";
 import DeleteButton from "./DeleteButton";
+import CancelButton from "./CancelButton";
 
-export function PlantRow({ plant, onDeleted }) {
+export function PlantRow({ plant, onDeleted, onStatusUpdated, canEdit, canDelete }) {
   const [expanded, setExpanded] = useState(false);
 
   const invoices = plant.invoices ?? [];
@@ -92,12 +93,21 @@ export function PlantRow({ plant, onDeleted }) {
         </TableCell>
 
         <TableCell onClick={(e) => e.stopPropagation()}>
-          {first && (
-            <DeleteButton
-              invoiceId={first._id}
-              onDeleted={onDeleted}
-            />
-          )}
+          <div className="flex items-center gap-3">
+            {canEdit && first && (
+              <CancelButton
+                plantNumber={plant.plantNumber}
+                currentStatus={plant.status}
+                onStatusUpdated={onStatusUpdated}
+              />
+            )}
+            {canDelete && first && (
+              <DeleteButton
+                invoiceId={first._id}
+                onDeleted={onDeleted}
+              />
+            )}
+          </div>
         </TableCell>
       </TableRow>
 
@@ -127,10 +137,14 @@ export function PlantRow({ plant, onDeleted }) {
             <TableCell />
 
             <TableCell onClick={(e) => e.stopPropagation()}>
-              <DeleteButton
-                invoiceId={inv._id}
-                onDeleted={onDeleted}
-              />
+              <div className="flex items-center gap-3">
+                {canDelete && (
+                  <DeleteButton
+                    invoiceId={inv._id}
+                    onDeleted={onDeleted}
+                  />
+                )}
+              </div>
             </TableCell>
           </TableRow>
         ))}

@@ -98,7 +98,7 @@ export function InvoiceHistorySheet({ open, onOpenChange }) {
                   <TableHead>Location</TableHead>
                   <TableHead>Invoices Count</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Delivered At</TableHead>
+                  <TableHead>Delivered/Cancelled At</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -129,7 +129,9 @@ export function InvoiceHistorySheet({ open, onOpenChange }) {
                         <StatusBadge status={plant.status} />
                       </TableCell>
                       <TableCell className="text-[11px] text-slate-500 font-medium">
-                        {plant.deliveredAt ? new Date(plant.deliveredAt).toLocaleString("en-IN") : "—"}
+                        {plant.status === "Cancelled"
+                          ? (plant.cancelledAt ? new Date(plant.cancelledAt).toLocaleString("en-IN") : "—")
+                          : (plant.deliveredAt ? new Date(plant.deliveredAt).toLocaleString("en-IN") : "—")}
                       </TableCell>
                     </TableRow>
                   ))

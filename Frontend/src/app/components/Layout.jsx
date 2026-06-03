@@ -167,6 +167,7 @@ export function Layout() {
   };
 
   const hasViewPermission = (moduleName) => {
+    if (moduleName === "Dashboard") return true;
     if (user?.role === "Super Admin") return true;
     if (!user?.permissions) return false;
     const perm = user.permissions.find(p => p.module === moduleName);

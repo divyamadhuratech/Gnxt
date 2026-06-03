@@ -25,7 +25,12 @@ export const authenticate = async (req, res, next) => {
       return res.status(401).json({ success: false, message: "Unauthorized" });
     }
 
-    req.user = { id: user._id.toString(), username: user.username, role: user.role };
+    req.user = {
+      id: user._id.toString(),
+      username: user.username,
+      role: user.role,
+      permissions: user.permissions || [],
+    };
     next();
   } catch (err) {
     return res.status(401).json({ success: false, message: "Invalid or expired token" });
@@ -38,4 +43,36 @@ export const requireSuperAdmin = (req, res, next) => {
     return res.status(403).json({ success: false, message: "Super Admin access required" });
   }
   next();
+};
+
+/* ── Require Module Permission ── */
+export const requirePermission = (moduleName, action) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    // Super Admin has all access
+    if (req.user.role === "Super Admin") {
+      return next();
+    }
+
+    const userPermissions = req.user.permissions || [];
+    const modulePerm = userPermissions.find(
+      (p) => p.module?.toLowerCase() === moduleName?.toLowerCase()
+    );
+
+    const hasModuleAccess = modulePerm && modulePerm[action?.toLowerCase()];
+    const hasDashboardViewAccess = action?.toLowerCase() === "view" && 
+      userPermissions.some(p => p.module?.toLowerCase() === "dashboard" && p.view);
+
+    if (!hasModuleAccess && !hasDashboardViewAccess) {
+      return res.status(403).json({
+        success: false,
+        message: `Forbidden: You do not have permission to ${action} in ${moduleName}`,
+      });
+    }
+
+    next();
+  };
 };

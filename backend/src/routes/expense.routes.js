@@ -7,14 +7,17 @@ import {
   deleteExpense,
   getExpenseSummary,
 } from "../controllers/expense.controller.js";
+import { authenticate, requirePermission } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
-router.get("/summary", getExpenseSummary);   // must be before /:id
-router.get("/", getExpenses);
-router.post("/", createExpense);
-router.get("/:id", getExpenseById);
-router.put("/:id", updateExpense);
-router.delete("/:id", deleteExpense);
+router.use(authenticate);
+
+router.get("/summary", requirePermission("Expenses", "view"), getExpenseSummary);   // must be before /:id
+router.get("/", requirePermission("Expenses", "view"), getExpenses);
+router.post("/", requirePermission("Expenses", "create"), createExpense);
+router.get("/:id", requirePermission("Expenses", "view"), getExpenseById);
+router.put("/:id", requirePermission("Expenses", "edit"), updateExpense);
+router.delete("/:id", requirePermission("Expenses", "delete"), deleteExpense);
 
 export default router;

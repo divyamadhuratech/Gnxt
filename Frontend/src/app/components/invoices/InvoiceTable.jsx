@@ -18,6 +18,9 @@ export function InvoiceTable({
   total,
   onPageChange,
   onDeleted,
+  onStatusUpdated,
+  canEdit,
+  canDelete,
 }) {
   return (
     <div className="flex-1 min-h-0 bg-white border border-border rounded-xl shadow-sm overflow-hidden flex flex-col">
@@ -58,6 +61,9 @@ export function InvoiceTable({
                   key={plant._id}
                   plant={plant}
                   onDeleted={onDeleted}
+                  onStatusUpdated={onStatusUpdated}
+                  canEdit={canEdit}
+                  canDelete={canDelete}
                 />
               ))
             )}

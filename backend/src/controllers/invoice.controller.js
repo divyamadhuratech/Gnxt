@@ -89,6 +89,7 @@ export const getInvoices = async (req, res) => {
       status = "",
       page = 1,
       limit = 15,
+      all = "false",
     } = req.query;
 
     page = Number(page);
@@ -125,19 +126,29 @@ export const getInvoices = async (req, res) => {
       query.status = status;
     }
 
-    // ACTIVE FILTER: exclude Delivered invoices that are older than 2 minutes
-    // (they have moved to history)
-    const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
-    query.$nor = [
-      {
-        status: "Delivered",
-        $or: [
-          { deliveredAt: { $lt: twoMinutesAgo } },
-          { deliveredAt: null, updatedAt: { $lt: twoMinutesAgo } },
-          { deliveredAt: { $exists: false }, updatedAt: { $lt: twoMinutesAgo } }
-        ]
-      },
-    ];
+    // ACTIVE FILTER: exclude Delivered and Cancelled invoices that are older than 2 minutes
+    // (they have moved to history) unless all=true is passed
+    if (all !== "true") {
+      const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
+      query.$nor = [
+        {
+          status: "Delivered",
+          $or: [
+            { deliveredAt: { $lt: twoMinutesAgo } },
+            { deliveredAt: null, updatedAt: { $lt: twoMinutesAgo } },
+            { deliveredAt: { $exists: false }, updatedAt: { $lt: twoMinutesAgo } }
+          ]
+        },
+        {
+          status: "Cancelled",
+          $or: [
+            { cancelledAt: { $lt: twoMinutesAgo } },
+            { cancelledAt: null, updatedAt: { $lt: twoMinutesAgo } },
+            { cancelledAt: { $exists: false }, updatedAt: { $lt: twoMinutesAgo } }
+          ]
+        }
+      ];
+    }
 
     // FETCH MATCHING RECORDS
     const invoices = await Invoice.find(query).sort({
@@ -159,6 +170,8 @@ export const getInvoices = async (req, res) => {
           location: inv.location || "",
           status: inv.status,
           createdAt: inv.createdAt,
+          deliveredAt: inv.deliveredAt,
+          cancelledAt: inv.cancelledAt,
           invoices: [],
         });
       }
@@ -212,13 +225,18 @@ export const updateInvoiceStatus = async (req, res) => {
     const { plantId } = req.params;
     const { status } = req.body;
 
-    // Stamp deliveredAt when status becomes Delivered
+    // Stamp deliveredAt when status becomes Delivered or cancelledAt when Cancelled
     const updateData = { status };
     if (status === "Delivered") {
       updateData.deliveredAt = new Date();
-    } else {
-      // Reset deliveredAt if status reverts (e.g., back to Assigned/Pending)
+      updateData.cancelledAt = null;
+    } else if (status === "Cancelled") {
+      updateData.cancelledAt = new Date();
       updateData.deliveredAt = null;
+    } else {
+      // Reset stamps if status reverts (e.g., back to Assigned/Pending)
+      updateData.deliveredAt = null;
+      updateData.cancelledAt = null;
     }
 
     await Invoice.updateMany(
@@ -327,23 +345,39 @@ export const getInvoiceHistory = async (req, res) => {
     const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
 
     const query = {
-      status: "Delivered",
       $or: [
-        { deliveredAt: { $lt: twoMinutesAgo } },
-        { deliveredAt: null, updatedAt: { $lt: twoMinutesAgo } },
-        { deliveredAt: { $exists: false }, updatedAt: { $lt: twoMinutesAgo } }
+        {
+          status: "Delivered",
+          $or: [
+            { deliveredAt: { $lt: twoMinutesAgo } },
+            { deliveredAt: null, updatedAt: { $lt: twoMinutesAgo } },
+            { deliveredAt: { $exists: false }, updatedAt: { $lt: twoMinutesAgo } }
+          ]
+        },
+        {
+          status: "Cancelled",
+          $or: [
+            { cancelledAt: { $lt: twoMinutesAgo } },
+            { cancelledAt: null, updatedAt: { $lt: twoMinutesAgo } },
+            { cancelledAt: { $exists: false }, updatedAt: { $lt: twoMinutesAgo } }
+          ]
+        }
       ]
     };
 
     if (search.trim()) {
-      query.$or = [
-        { plantReferenceNumber: { $regex: search, $options: "i" } },
-        { customerName:         { $regex: search, $options: "i" } },
-        { invoiceNumber:        { $regex: search, $options: "i" } },
+      query.$and = [
+        {
+          $or: [
+            { plantReferenceNumber: { $regex: search, $options: "i" } },
+            { customerName:         { $regex: search, $options: "i" } },
+            { invoiceNumber:        { $regex: search, $options: "i" } },
+          ]
+        }
       ];
     }
 
-    const invoices = await Invoice.find(query).sort({ deliveredAt: -1 });
+    const invoices = await Invoice.find(query).sort({ updatedAt: -1 });
 
     // Group by plant + customer (same as main list)
     const groupedMap = new Map();
@@ -357,6 +391,7 @@ export const getInvoiceHistory = async (req, res) => {
           location: inv.location || "",
           status: inv.status,
           deliveredAt: inv.deliveredAt,
+          cancelledAt: inv.cancelledAt,
           invoices: [],
         });
       }
@@ -365,6 +400,7 @@ export const getInvoiceHistory = async (req, res) => {
         invoiceNumber: inv.invoiceNumber,
         invoiceDate: inv.invoiceDate,
         deliveredAt: inv.deliveredAt,
+        cancelledAt: inv.cancelledAt,
       });
     });
 
@@ -380,5 +416,56 @@ export const getInvoiceHistory = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const addInvoice = async (req, res) => {
+  try {
+    const { plantNumber, customerName, location, invoiceNumber, invoiceDate } = req.body;
+
+    if (!plantNumber || !customerName || !invoiceNumber || !invoiceDate) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required fields: plantNumber, customerName, invoiceNumber, invoiceDate",
+      });
+    }
+
+    // Check unique constraint: plantReferenceNumber, customerName, invoiceNumber, invoiceDate
+    const existing = await Invoice.findOne({
+      plantReferenceNumber: plantNumber.trim(),
+      customerName: customerName.trim(),
+      invoiceNumber: invoiceNumber.trim(),
+      invoiceDate: new Date(invoiceDate),
+    });
+
+    if (existing) {
+      return res.status(400).json({
+        success: false,
+        message: "Invoice already exists with the same Plant No, Customer Name, Invoice, and Invoice Date",
+      });
+    }
+
+    const newInvoice = new Invoice({
+      plantReferenceNumber: plantNumber.trim(),
+      customerName: customerName.trim(),
+      location: location?.trim() || "",
+      invoiceNumber: invoiceNumber.trim(),
+      invoiceDate: new Date(invoiceDate),
+      status: "Pending",
+    });
+
+    await newInvoice.save();
+
+    res.status(201).json({
+      success: true,
+      message: "Invoice added successfully",
+      data: newInvoice,
+    });
+  } catch (error) {
+    console.error("Add invoice error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "Failed to add invoice",
+    });
   }
 };

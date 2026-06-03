@@ -27,6 +27,7 @@ export function DashboardPage() {
   const [currentShipments, setCurrentShipments] = useState([]);
   const [historicalShipments, setHistoricalShipments] = useState([]);
   const [pendingPODs, setPendingPODs] = useState([]);
+  const [cancelledInvoices, setCancelledInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -36,11 +37,12 @@ export function DashboardPage() {
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      const [statsRes, weeklyRes, shipmentsRes, invoicesRes] = await Promise.all([
+      const [statsRes, weeklyRes, shipmentsRes, invoicesRes, cancelledInvoicesRes] = await Promise.all([
         axios.get(`${API_BASE_URL}/dashboard/stats`),
         axios.get(`${API_BASE_URL}/dashboard/weekly`),
         axios.get(`${API_BASE_URL}/shipments?limit=100`),
-        axios.get(`${API_BASE_URL}/invoices?status=Pending`)
+        axios.get(`${API_BASE_URL}/invoices?status=Pending`),
+        axios.get(`${API_BASE_URL}/invoices?status=Cancelled&all=true&limit=100`)
       ]);
 
       if (statsRes.data.success) setStats(statsRes.data.data);
@@ -68,6 +70,10 @@ export function DashboardPage() {
           status: inv.status === "Pending" ? "Awaiting Upload" : "Verification Pending"
         }));
         setPendingPODs(pods);
+      }
+
+      if (cancelledInvoicesRes.data.success) {
+        setCancelledInvoices(cancelledInvoicesRes.data.data || []);
       }
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
@@ -101,8 +107,15 @@ export function DashboardPage() {
     baseData = currentShipments.filter(s => s.status === "In Transit" && new Date(s.originalDate) >= sevenDaysAgo);
   } else if (activeStatView === "Pending Dispatch") {
     baseData = currentShipments.filter(s => s.status === "Pending" && new Date(s.originalDate) >= sevenDaysAgo);
-  } else if (activeStatView === "Cancelled Shipments") {
-    baseData = historicalShipments.filter(s => s.status === "Cancelled" && new Date(s.originalDate) >= sevenDaysAgo);
+  } else if (activeStatView === "Cancelled Invoices") {
+    baseData = cancelledInvoices.map(plant => ({
+      id: plant.invoices?.[0]?.invoiceNumber || "—",
+      originalDate: plant.cancelledAt || plant.createdAt,
+      customer: plant.customerName,
+      location: plant.location || "—",
+      status: plant.status,
+      allInvoices: plant.invoices
+    })).filter(item => new Date(item.originalDate) >= sevenDaysAgo);
   } else if (activeStatView === "Deliveries Today") {
     const todayStr = new Date().toDateString();
     baseData = historicalShipments.filter(s => {
@@ -117,9 +130,11 @@ export function DashboardPage() {
   // Apply search filter
   const tableData = baseData.filter((item) => {
     const matchesSearch =
-      item.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.driver.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.vehicle.toLowerCase().includes(searchQuery.toLowerCase());
+      (item.id?.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (item.driver?.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (item.vehicle?.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (item.customer?.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (item.location?.toLowerCase().includes(searchQuery.toLowerCase()));
 
     const matchesPod =
       podFilter === "all" ||

@@ -6,25 +6,33 @@ import {
   updateInvoiceStatus,
   toggleInvoiceCheck,
   deleteInvoice,
-  getInvoiceHistory
+  getInvoiceHistory,
+  addInvoice
 } from "../controllers/invoice.controller.js";
 import { upload } from "../middleware/upload.middleware.js";
+import { authenticate, requirePermission } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
+router.use(authenticate);
+
+// Add invoice manually
+router.post("/", requirePermission("Invoices", "create"), addInvoice);
+
 // Upload Excel
-router.post("/upload", upload.single("file"), uploadInvoiceSheet);
+router.post("/upload", requirePermission("Invoices", "create"), upload.single("file"), uploadInvoiceSheet);
 
 // Get invoices (for table)
-router.get("/", getInvoices);
+router.get("/", requirePermission("Invoices", "view"), getInvoices);
 
-router.get("/history", getInvoiceHistory);
+router.get("/history", requirePermission("Invoices", "view"), getInvoiceHistory);
 
-router.patch("/:plantId/status", updateInvoiceStatus);
+router.patch("/:plantId/status", requirePermission("Invoices", "edit"), updateInvoiceStatus);
 
 router.patch(
   "/:plantId/check/:invoiceNumber",
+  requirePermission("Invoices", "edit"),
   toggleInvoiceCheck
 );
-router.delete("/:invoiceId", deleteInvoice);
+router.delete("/:invoiceId", requirePermission("Invoices", "delete"), deleteInvoice);
 export default router;

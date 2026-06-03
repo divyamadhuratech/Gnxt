@@ -1,6 +1,10 @@
 import { Button } from "../ui/button";
+import { useAuth } from "../../context/AuthContext";
 
 export function ShipmentHeader({ total, onCreateClick, onHistoryClick }) {
+  const { hasPermission } = useAuth();
+  const canCreate = hasPermission("Shipments", "create");
+
   return (
     <div className="flex items-center justify-between">
       <div>
@@ -14,10 +18,12 @@ export function ShipmentHeader({ total, onCreateClick, onHistoryClick }) {
           <HistoryIcon />
           Shipment History
         </Button>
-        <Button onClick={onCreateClick} className="gap-2 bg-[#1d4ed8] hover:bg-[#1e40af] text-white shadow-sm cursor-pointer">
-          <PlusIcon />
-          Create Shipment
-        </Button>
+        {canCreate && (
+          <Button onClick={onCreateClick} className="gap-2 bg-[#1d4ed8] hover:bg-[#1e40af] text-white shadow-sm cursor-pointer">
+            <PlusIcon />
+            Create Shipment
+          </Button>
+        )}
       </div>
     </div>
   );

@@ -7,6 +7,7 @@ import { PODSection } from "./view/PODSection";
 import { VehicleDriverDetails } from "./view/VehicleDriverDetails";
 import { ItemsBreakdown } from "./view/ItemsBreakdown";
 import { ShipmentTimeline } from "./view/ShipmentTimeline";
+import { useAuth } from "../../context/AuthContext";
 
 const API_BASE_URL = import.meta.env?.VITE_API_URL || "http://localhost:5000/api";
 const GPS_POLL_MS = 10_000; // refresh GPS every 10 s while sheet is open
@@ -120,6 +121,8 @@ function buildDetail(s, liveGps) {
 }
 
 export function ViewShipmentSheet({ open, onOpenChange, shipment, onStatusChange, onEdit }) {
+  const { hasPermission } = useAuth();
+  const canEdit = hasPermission("Shipments", "edit");
   const [podViewImage, setPodViewImage] = useState(null);
   const [fullShipment, setFullShipment] = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
@@ -310,6 +313,7 @@ export function ViewShipmentSheet({ open, onOpenChange, shipment, onStatusChange
                 onSaveDestinationPOD={handleSaveDestinationPOD}
                 onDestinationDeliverySuccess={handleDestinationDeliverySuccess}
                 setPodViewImage={setPodViewImage}
+                canEdit={canEdit}
               />
               <ItemsBreakdown shipment={viewShipment} detail={detail} totalQty={totalQty} totalWt={totalWt} />
               <VehicleDriverDetails shipment={viewShipment} detail={detail} loadUtil={loadUtil} />
@@ -336,27 +340,17 @@ export function ViewShipmentSheet({ open, onOpenChange, shipment, onStatusChange
             Close
           </Button>
           <div className="flex items-center gap-3">
-            {s.status === "Pending" && (
-              <>
-                <Button variant="outline" className="border-border gap-2" onClick={() => handleStatusUpdate("Cancelled")}>
-                  <XCircle className="w-4 h-4" />Cancel Shipment
-                </Button>
-                <Button className="gap-2 bg-[#1d4ed8] hover:bg-[#1e40af] text-white shadow-sm" onClick={() => { if (onEdit) onEdit(s); onOpenChange(false); }}>
-                  <Edit className="w-4 h-4" />Edit Shipment
-                </Button>
-              </>
+            {canEdit && s.status === "Pending" && (
+              <Button className="gap-2 bg-[#1d4ed8] hover:bg-[#1e40af] text-white shadow-sm" onClick={() => { if (onEdit) onEdit(s); onOpenChange(false); }}>
+                <Edit className="w-4 h-4" />Edit Shipment
+              </Button>
             )}
-            {s.status === "In Transit" && (
-              <>
-                <Button variant="outline" className="border-border gap-2 text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => handleStatusUpdate("Cancelled")}>
-                  <XCircle className="w-4 h-4" />Cancellation
-                </Button>
-                <Button className="gap-2 bg-[#1d4ed8] hover:bg-[#1e40af] text-white shadow-sm" onClick={() => handleStatusUpdate("Delivered")}>
-                  <CheckCircle2 className="w-4 h-4" />Mark as Delivered
-                </Button>
-              </>
+            {canEdit && s.status === "In Transit" && (
+              <Button className="gap-2 bg-[#1d4ed8] hover:bg-[#1e40af] text-white shadow-sm" onClick={() => handleStatusUpdate("Delivered")}>
+                <CheckCircle2 className="w-4 h-4" />Mark as Delivered
+              </Button>
             )}
-            {s.status === "Delivered" && (
+            {canEdit && s.status === "Delivered" && (
               <>
                 <Button
                   className="gap-2 bg-slate-700 hover:bg-slate-800 text-white shadow-sm"
@@ -378,7 +372,7 @@ export function ViewShipmentSheet({ open, onOpenChange, shipment, onStatusChange
                 Shipment Completed
               </span>
             )}
-            {s.status === "Cancelled" && (
+            {canEdit && s.status === "Cancelled" && (
               <Button className="gap-2 bg-[#1d4ed8] hover:bg-[#1e40af] text-white shadow-sm" onClick={() => { if (onEdit) onEdit(s); onOpenChange(false); }}>
                 <Edit className="w-4 h-4" />Re-create Shipment
               </Button>

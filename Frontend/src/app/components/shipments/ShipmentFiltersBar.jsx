@@ -45,7 +45,6 @@ export function ShipmentFiltersBar({
           <SelectItem value="In Transit">In Transit ({statusCounts["In Transit"] || 0})</SelectItem>
           <SelectItem value="Delivered">Delivered ({statusCounts.Delivered || 0})</SelectItem>
           <SelectItem value="Returned">Returned ({statusCounts.Returned || 0})</SelectItem>
-          <SelectItem value="Cancelled">Cancelled ({statusCounts.Cancelled || 0})</SelectItem>
         </SelectContent>
       </Select>
 

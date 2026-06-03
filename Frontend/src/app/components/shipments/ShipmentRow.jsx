@@ -10,6 +10,7 @@ import {
 import { TableRow, TableCell } from "../ui/table";
 import { Badge } from "../ui/badge";
 import { getPODConfig, statusConfig } from "./utils/shipmentStyles";
+import { useAuth } from "../../context/AuthContext";
 
 const API_BASE_URL = import.meta.env?.VITE_API_URL || "http://localhost:5000/api";
 
@@ -21,6 +22,10 @@ export function PlantRow({
   setShipmentData,
   onDeleted,
 }) {
+  const { hasPermission } = useAuth();
+  const canEdit = hasPermission("Shipments", "edit");
+  const canDelete = hasPermission("Shipments", "delete");
+
   const [openPlants, setOpenPlants] = useState(false);
   const sc = statusConfig[shipment.status] || { label: shipment.status || "N/A", className: "bg-gray-50 text-gray-700 border-gray-200" };
   const pod = getPODConfig(shipment);
@@ -194,21 +199,25 @@ export function PlantRow({
             <Eye className="w-4 h-4" />
           </button>
           {/* Edit — opens CreateShipmentSheet pre-filled */}
-          <button
-            className="w-8 h-8 rounded-md flex items-center justify-center hover:bg-blue-50 transition-colors text-muted-foreground hover:text-[#1d4ed8]"
-            onClick={() => setEditShipment && setEditShipment(shipment)}
-            title="Edit Shipment"
-          >
-            <Pencil className="w-3.5 h-3.5" />
-          </button>
+          {canEdit && (
+            <button
+              className="w-8 h-8 rounded-md flex items-center justify-center hover:bg-blue-50 transition-colors text-muted-foreground hover:text-[#1d4ed8]"
+              onClick={() => setEditShipment && setEditShipment(shipment)}
+              title="Edit Shipment"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+          )}
           {/* Delete */}
-          <button
-            className="w-8 h-8 rounded-md flex items-center justify-center hover:bg-red-50 transition-colors text-muted-foreground hover:text-red-500"
-            onClick={handleDelete}
-            title="Delete"
-          >
-            <TrashIcon />
-          </button>
+          {canDelete && (
+            <button
+              className="w-8 h-8 rounded-md flex items-center justify-center hover:bg-red-50 transition-colors text-muted-foreground hover:text-red-500"
+              onClick={handleDelete}
+              title="Delete"
+            >
+              <TrashIcon />
+            </button>
+          )}
         </div>
       </TableCell>
     </TableRow>
