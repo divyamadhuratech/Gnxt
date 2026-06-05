@@ -36,14 +36,12 @@ import { cn } from "./ui/utils";
 const modulesList = [
   { value: "Dashboard", label: "Dashboard", icon: LayoutDashboard },
   { value: "Shipment", label: "Shipments Management", icon: Package },
-  { value: "Trip Tracking", label: "Trip Tracking & Map", icon: MapPin },
+  { value: "Trip Tracking", label: "Trip Tracking", icon: MapPin },
   { value: "Expenses", label: "Expense Management", icon: Receipt },
-  { value: "Vehicle Tracking", label: "Vehicle & GPS Tracking", icon: Car },
   { value: "Reports", label: "Reports & Analytics", icon: FileBarChart },
   { value: "Invoices", label: "Invoices & Billing", icon: FileText },
   { value: "Drivers", label: "Drivers Management", icon: Users },
   { value: "Vehicles", label: "Vehicles Management", icon: Car },
-  { value: "Dealers", label: "Dealers & Clients", icon: Users },
   { value: "Settings", label: "System Settings", icon: Settings },
 ];
 
