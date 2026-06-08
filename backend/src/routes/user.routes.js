@@ -1,6 +1,7 @@
 import express from "express";
 import {
   getUsers,
+  getRoleTemplates,
   createUser,
   updateUser,
   toggleUserStatus,
@@ -17,7 +18,10 @@ const router = express.Router();
 // All user management routes require authentication + Super Admin
 router.use(authenticate);
 
+// Static named routes MUST come before /:id wildcard routes
 router.get("/",                          getUsers);
+router.get("/role-templates",            requireSuperAdmin, getRoleTemplates);
+router.get("/activity-log",              getActivityLog);
 router.post("/",                         requireSuperAdmin, createUser);
 router.put("/role/permissions",          requireSuperAdmin, updateRolePermissions);
 router.put("/:id",                       requireSuperAdmin, updateUser);
@@ -25,6 +29,5 @@ router.patch("/:id/status",              requireSuperAdmin, toggleUserStatus);
 router.patch("/:id/password",            requireSuperAdmin, resetPassword);
 router.delete("/:id",                    requireSuperAdmin, deleteUser);
 router.put("/:id/permissions",           requireSuperAdmin, updatePermissions);
-router.get("/activity-log",              getActivityLog);
 
 export default router;

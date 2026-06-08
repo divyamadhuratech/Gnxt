@@ -17,6 +17,11 @@ export function VehicleTrackingPage() {
   const [lastPoll, setLastPoll]       = useState(null);
   const pollRef = useRef(null);
 
+  // ── Time picker modal state ──────────────────────────
+  const [timePickerOpen, setTimePickerOpen]   = useState(false);
+  const [timePickerMode, setTimePickerMode]   = useState(null); // "dispatch" | "arrival"
+  const [selectedDateTime, setSelectedDateTime] = useState("");
+
   // Fetch active shipment for this vehicle from MongoDB
   const fetchActiveShipment = useCallback(async () => {
     try {
@@ -44,14 +49,30 @@ export function VehicleTrackingPage() {
     }
   }, [vehicleId]);
 
-  // Dispatch handler (Transition status from Pending -> In Transit)
-  const handleDispatch = async () => {
-    if (!activeShipment) return;
+  // Helper: get local datetime-local string for default value (now)
+  const nowLocalISO = () => {
+    const now = new Date();
+    const offset = now.getTimezoneOffset();
+    const local = new Date(now.getTime() - offset * 60 * 1000);
+    return local.toISOString().slice(0, 16);
+  };
+
+  // Open the time picker dialog
+  const openTimePicker = (mode) => {
+    setTimePickerMode(mode);
+    setSelectedDateTime(nowLocalISO());
+    setTimePickerOpen(true);
+  };
+
+  // Confirm and submit dispatch
+  const confirmDispatch = async () => {
+    if (!activeShipment || !selectedDateTime) return;
+    setTimePickerOpen(false);
     try {
       const res = await fetch(`${API_BASE}/shipments/${activeShipment._id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "In Transit" }),
+        body: JSON.stringify({ status: "In Transit", dispatchDate: selectedDateTime }),
       });
       const json = await res.json();
       if (json.success) {
@@ -66,14 +87,15 @@ export function VehicleTrackingPage() {
     }
   };
 
-  // Arrived/Returned handler (Transition status from Delivered -> Returned)
-  const handleReturn = async () => {
-    if (!activeShipment) return;
+  // Confirm and submit arrival/return
+  const confirmArrival = async () => {
+    if (!activeShipment || !selectedDateTime) return;
+    setTimePickerOpen(false);
     try {
       const res = await fetch(`${API_BASE}/shipments/${activeShipment._id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "Returned" }),
+        body: JSON.stringify({ status: "Returned", returnedDate: selectedDateTime }),
       });
       const json = await res.json();
       if (json.success) {
@@ -189,8 +211,8 @@ export function VehicleTrackingPage() {
       <VehicleTrackingHeader
         data={data}
         ss={ss}
-        onDispatch={handleDispatch}
-        onReturn={handleReturn}
+        onDispatch={() => openTimePicker("dispatch")}
+        onReturn={() => openTimePicker("arrival")}
         isPolling={isPolling}
         lastPoll={lastPoll}
         onRefresh={triggerRefresh}
@@ -217,6 +239,55 @@ export function VehicleTrackingPage() {
           </div>
         </div>
       </div>
+
+      {/* ── Manual Time Picker Modal ───────────────────── */}
+      {timePickerOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl border border-border w-full max-w-sm mx-4 p-6 space-y-5">
+            {/* Header */}
+            <div>
+              <h2 className="text-base font-semibold text-foreground">
+                {timePickerMode === "dispatch" ? "Set Dispatch Time" : "Set Arrival Time"}
+              </h2>
+              <p className="text-xs text-muted-foreground mt-1">
+                {timePickerMode === "dispatch"
+                  ? "Select the exact date and time the vehicle departed the warehouse."
+                  : "Select the exact date and time the vehicle arrived back."}
+              </p>
+            </div>
+
+            {/* Datetime Input */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-slate-700">
+                {timePickerMode === "dispatch" ? "Departed At" : "Arrived At"}
+              </label>
+              <input
+                type="datetime-local"
+                value={selectedDateTime}
+                onChange={(e) => setSelectedDateTime(e.target.value)}
+                className="w-full h-10 rounded-lg border border-border bg-slate-50 px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[#1d4ed8]/30 focus:border-[#1d4ed8] transition"
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={() => setTimePickerOpen(false)}
+                className="flex-1 h-9 rounded-lg border border-border text-sm text-muted-foreground hover:bg-muted/60 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={!selectedDateTime}
+                onClick={timePickerMode === "dispatch" ? confirmDispatch : confirmArrival}
+                className="flex-1 h-9 rounded-lg bg-[#1d4ed8] hover:bg-[#1e40af] text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {timePickerMode === "dispatch" ? "Confirm Dispatch" : "Confirm Arrival"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

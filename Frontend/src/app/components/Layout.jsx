@@ -57,7 +57,7 @@ const navSections = [
         label: "Shipments",
         icon: <Package className="w-[18px] h-[18px]" />,
         href: "/shipments",
-        badge: "12",
+        badgeKey: "shipments",
         badgeColor: "bg-blue-100 text-blue-700",
       },
       {
@@ -138,8 +138,37 @@ export function Layout() {
   const { user, loading, logout, isAuthenticated } = useAuth();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [activeShipmentsCount, setActiveShipmentsCount] = useState(null);
   const location = useLocation();
   const navigate = useNavigate();
+
+  const API_BASE = import.meta.env?.VITE_API_URL || "http://localhost:5000/api";
+
+  // Fetch active shipment count (Pending + In Transit) for the sidebar badge
+  useEffect(() => {
+    const fetchCount = async () => {
+      try {
+        const [pendingRes, inTransitRes] = await Promise.all([
+          fetch(`${API_BASE}/shipments?status=Pending&limit=1`),
+          fetch(`${API_BASE}/shipments?status=${encodeURIComponent("In Transit")}&limit=1`),
+        ]);
+        const [pending, inTransit] = await Promise.all([
+          pendingRes.json(),
+          inTransitRes.json(),
+        ]);
+        const count =
+          (pending.pagination?.total || 0) +
+          (inTransit.pagination?.total || 0);
+        setActiveShipmentsCount(count);
+      } catch {
+        // silently fail — badge just won't show
+      }
+    };
+    fetchCount();
+    // Refresh every 60 seconds
+    const interval = setInterval(fetchCount, 60_000);
+    return () => clearInterval(interval);
+  }, []);
 
   const hasViewPermission = (moduleName) => {
     if (user?.role === "Super Admin") return true;
@@ -283,6 +312,7 @@ export function Layout() {
                         key={item.href}
                         item={item}
                         collapsed={sidebarCollapsed}
+                        badges={{ shipments: activeShipmentsCount }}
                       />
                     ))}
                   </div>
@@ -399,7 +429,11 @@ export function Layout() {
 
 /* ── Sidebar Link Sub-component ─────────────── */
 
-function SidebarLink({ item, collapsed }) {
+function SidebarLink({ item, collapsed, badges = {} }) {
+  // Resolve badge value: static badge string or dynamic via badgeKey
+  const badgeValue = item.badge ?? (item.badgeKey ? badges[item.badgeKey] : null);
+  const showBadge = badgeValue !== null && badgeValue !== undefined && badgeValue !== 0;
+
   const content = (
     <NavLink
       to={item.href}
@@ -419,12 +453,12 @@ function SidebarLink({ item, collapsed }) {
           {!collapsed && (
             <>
               <span className="flex-1 truncate">{item.label}</span>
-              {item.badge && (
+              {showBadge && (
                 <span
                   className={`text-[10px] px-1.5 py-0.5 rounded-full ${item.badgeColor || "bg-muted text-muted-foreground"
                     }`}
                 >
-                  {item.badge}
+                  {badgeValue}
                 </span>
               )}
             </>

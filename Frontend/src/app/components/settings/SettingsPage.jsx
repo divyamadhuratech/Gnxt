@@ -367,9 +367,10 @@ export function SettingsPage() {
   // While redirect is pending, render nothing
   if (currentUser?.role !== "Super Admin") return null;
 
-  const initializePermissions = (fetchedUsers) => {
+  const initializePermissions = (fetchedUsers, roleTemplates = {}) => {
     const defaultPerms = {};
     ROLES.forEach((role) => {
+      // 1. Try a real user with this role first
       const existingUser = fetchedUsers.find(
         (u) =>
           u.role === role.name &&
@@ -384,7 +385,18 @@ export function SettingsPage() {
         } else {
           defaultPerms[role.name] = buildDefaultPermissions(role.name);
         }
+      } else if (roleTemplates[role.name]) {
+        // 2. Fall back to saved template (fresh system / no users for this role yet)
+        const t = roleTemplates[role.name];
+        if (t.granularPermissions && Object.keys(t.granularPermissions).length > 0) {
+          defaultPerms[role.name] = { ...t.granularPermissions };
+        } else if (t.permissions && t.permissions.length > 0) {
+          defaultPerms[role.name] = mapLegacyToGranular(t.permissions, role.name);
+        } else {
+          defaultPerms[role.name] = buildDefaultPermissions(role.name);
+        }
       } else {
+        // 3. Brand-new role — use built-in defaults
         defaultPerms[role.name] = buildDefaultPermissions(role.name);
       }
     });
@@ -394,13 +406,18 @@ export function SettingsPage() {
   const fetchUsers = async () => {
     setLoadingUsers(true);
     try {
-      const res = await fetch(`${API}/users`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      if (data.success) {
-        setUsers(data.data);
-        initializePermissions(data.data);
+      // Fetch real users and role templates in parallel
+      const [usersRes, templatesRes] = await Promise.all([
+        fetch(`${API}/users`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API}/users/role-templates`, { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+      const [usersData, templatesData] = await Promise.all([
+        usersRes.json(),
+        templatesRes.json(),
+      ]);
+      if (usersData.success) {
+        setUsers(usersData.data);
+        initializePermissions(usersData.data, templatesData.success ? templatesData.data : {});
       }
     } catch (err) {
       console.error("Error fetching users:", err);

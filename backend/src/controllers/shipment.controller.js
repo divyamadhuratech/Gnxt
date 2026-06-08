@@ -233,7 +233,7 @@ export const getShipmentById = async (req, res) => {
 ───────────────────────────────────────────────── */
 export const updateShipmentStatus = async (req, res) => {
   try {
-    const { status, podReceiverName, podRemarks, podImages, destinationId } = req.body;
+    const { status, podReceiverName, podRemarks, podImages, destinationId, dispatchDate: manualDispatchDate, returnedDate: manualReturnedDate } = req.body;
     const allowed = ["Pending", "In Transit", "Delivered", "Returned", "Cancelled", "Closed"];
     if (!allowed.includes(status)) {
       return res.status(400).json({ success: false, message: "Invalid status" });
@@ -295,8 +295,8 @@ export const updateShipmentStatus = async (req, res) => {
     const updateFields = {
       status,
       ...(status === "Delivered" ? { deliveryDate: new Date() } : {}),
-      ...(status === "In Transit" ? { dispatchDate: new Date() } : {}),
-      ...(status === "Returned" ? { returnedDate: new Date() } : {}),
+      ...(status === "In Transit" ? { dispatchDate: manualDispatchDate ? new Date(manualDispatchDate) : new Date() } : {}),
+      ...(status === "Returned" ? { returnedDate: manualReturnedDate ? new Date(manualReturnedDate) : new Date() } : {}),
       ...(podReceiverName !== undefined ? { podReceiverName } : {}),
       ...(podRemarks !== undefined ? { podRemarks } : {}),
       ...(podImages !== undefined ? { podImages } : {}),

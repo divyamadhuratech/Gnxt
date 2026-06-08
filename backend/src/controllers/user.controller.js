@@ -38,6 +38,29 @@ export const getUsers = async (req, res) => {
   }
 };
 
+/* ── GET /api/users/role-templates
+   Returns saved permission configs for roles that have no real users yet.
+   Keyed by role name so the frontend can initialize the permission editor. ── */
+export const getRoleTemplates = async (req, res) => {
+  try {
+    const templates = await User.find({ username: /^template_/ }).lean();
+    const result = {};
+    templates.forEach((t) => {
+      result[t.role] = {
+        permissions: t.permissions || [],
+        granularPermissions: t.granularPermissions
+          ? (t.granularPermissions instanceof Map
+              ? Object.fromEntries(t.granularPermissions)
+              : t.granularPermissions)
+          : {},
+      };
+    });
+    res.status(200).json({ success: true, data: result });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Error fetching role templates", error: err.message });
+  }
+};
+
 /* ── POST /api/users ── */
 export const createUser = async (req, res) => {
   try {
@@ -272,10 +295,11 @@ export const updateRolePermissions = async (req, res) => {
       return res.status(400).json({ success: false, message: "Role is required" });
     }
 
+    // Find ALL users with this role (including template users)
     const users = await User.find({ role });
 
     if (users.length > 0) {
-      // Update all users with this role
+      // Update all existing users (real + template) with this role
       await Promise.all(
         users.map(async (user) => {
           if (permissions) user.permissions = permissions;
@@ -287,18 +311,29 @@ export const updateRolePermissions = async (req, res) => {
         })
       );
     } else {
-      // Create a template user to persist the role configuration
+      // No users for this role yet — upsert a template user to persist the config.
+      // Using findOneAndUpdate+upsert avoids duplicate key errors on repeated saves.
       const cleanRoleName = role.toLowerCase().replace(/[^a-z0-9]/g, "_");
       const templateUsername = `template_${cleanRoleName}`;
-      await User.create({
-        username: templateUsername,
-        email: `${templateUsername}@gnxt.com`,
-        password: "TemplatePassword@2026",
-        role,
-        status: "Inactive",
-        permissions: permissions || [],
-        granularPermissions: granularPermissions || {},
-      });
+
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash("TemplatePassword@2026", salt);
+
+      await User.findOneAndUpdate(
+        { username: templateUsername },
+        {
+          $set: {
+            username: templateUsername,
+            email: `${templateUsername}@gnxt.com`,
+            password: hashedPassword,
+            role,
+            status: "Inactive",
+            permissions: permissions || [],
+            granularPermissions: granularPermissions || {},
+          },
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
     }
 
     await ActivityLog.create({
@@ -312,6 +347,7 @@ export const updateRolePermissions = async (req, res) => {
 
     res.status(200).json({ success: true, message: `Permissions updated for role ${role}` });
   } catch (err) {
+    console.error("updateRolePermissions error:", err);
     res.status(500).json({ success: false, message: "Error updating role permissions", error: err.message });
   }
 };
