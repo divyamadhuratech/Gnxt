@@ -7,7 +7,7 @@ import {
   deleteExpense,
   getExpenseSummary,
 } from "../controllers/expense.controller.js";
-import { authenticate, requirePermission } from "../middleware/auth.middleware.js";
+import { authenticate, requirePermission, requireSuperAdmin } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
@@ -18,6 +18,6 @@ router.get("/", requirePermission("Expenses", "view"), getExpenses);
 router.post("/", requirePermission("Expenses", "create"), createExpense);
 router.get("/:id", requirePermission("Expenses", "view"), getExpenseById);
 router.put("/:id", requirePermission("Expenses", "edit"), updateExpense);
-router.delete("/:id", requirePermission("Expenses", "delete"), deleteExpense);
+router.delete("/:id", requireSuperAdmin, deleteExpense);
 
 export default router;

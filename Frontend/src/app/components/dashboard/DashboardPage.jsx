@@ -38,17 +38,17 @@ export function DashboardPage() {
     setLoading(true);
     try {
       const [statsRes, weeklyRes, shipmentsRes, invoicesRes, cancelledInvoicesRes] = await Promise.all([
-        axios.get(`${API_BASE_URL}/dashboard/stats`),
-        axios.get(`${API_BASE_URL}/dashboard/weekly`),
-        axios.get(`${API_BASE_URL}/shipments?limit=100`),
-        axios.get(`${API_BASE_URL}/invoices?status=Pending`),
-        axios.get(`${API_BASE_URL}/invoices?status=Cancelled&all=true&limit=100`)
+        axios.get(`${API_BASE_URL}/dashboard/stats`).catch(() => ({ data: { success: false } })),
+        axios.get(`${API_BASE_URL}/dashboard/weekly`).catch(() => ({ data: { success: false } })),
+        axios.get(`${API_BASE_URL}/shipments?limit=100`).catch(() => ({ data: { success: false } })),
+        axios.get(`${API_BASE_URL}/invoices?status=Pending`).catch(() => ({ data: { success: false } })),
+        axios.get(`${API_BASE_URL}/invoices?status=Cancelled&all=true&limit=100`).catch(() => ({ data: { success: false } }))
       ]);
 
-      if (statsRes.data.success) setStats(statsRes.data.data);
-      if (weeklyRes.data.success) setWeeklyData(weeklyRes.data.data);
+      if (statsRes.data?.success) setStats(statsRes.data.data);
+      if (weeklyRes.data?.success) setWeeklyData(weeklyRes.data.data);
 
-      if (shipmentsRes.data.success) {
+      if (shipmentsRes.data?.success) {
         const shipments = shipmentsRes.data.data;
         const active = shipments
           .filter(s => s.status !== "Delivered" && s.status !== "Cancelled")
@@ -61,18 +61,18 @@ export function DashboardPage() {
         setHistoricalShipments(history);
       }
 
-      if (invoicesRes.data.success) {
+      if (invoicesRes.data?.success) {
         const pods = invoicesRes.data.data.map(inv => ({
           id: inv.invoiceNumber,
           dealer: inv.customerName,
           date: format(new Date(inv.invoiceDate || inv.createdAt), "MMM d, yyyy"),
-          shipmentId: inv.plantReferenceNumber || "N/A", // Or map to shipment if possible
+          shipmentId: inv.plantReferenceNumber || "N/A",
           status: inv.status === "Pending" ? "Awaiting Upload" : "Verification Pending"
         }));
         setPendingPODs(pods);
       }
 
-      if (cancelledInvoicesRes.data.success) {
+      if (cancelledInvoicesRes.data?.success) {
         setCancelledInvoices(cancelledInvoicesRes.data.data || []);
       }
     } catch (error) {

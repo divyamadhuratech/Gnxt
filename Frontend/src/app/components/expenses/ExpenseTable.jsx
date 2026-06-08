@@ -29,6 +29,7 @@ import {
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 import { HIGH_EXPENSE_THRESHOLD, ITEMS_PER_PAGE } from "./data/expensesData";
+import { useAuth } from "../../context/AuthContext";
 
 function SortableHead({ label, field, current, dir, onSort, className = "" }) {
   const isActive = current === field;
@@ -77,6 +78,8 @@ export function ExpenseTable({
   onEditExpense,
   onDeleteExpense,
 }) {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "Super Admin";
   const [expandedTrips, setExpandedTrips] = useState({});
 
   const toggleTrip = (tripId) => {
@@ -300,19 +303,21 @@ export function ExpenseTable({
                                         >
                                           <Pencil className="w-3.5 h-3.5" />
                                         </Button>
-                                        <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          className="w-7 h-7 text-red-600 hover:text-red-800 hover:bg-red-50"
-                                          onClick={() => {
-                                            if (window.confirm("Are you sure you want to delete this expense entry?")) {
-                                              onDeleteExpense(item._id);
-                                            }
-                                          }}
-                                          title="Delete Entry"
-                                        >
-                                          <Trash2 className="w-3.5 h-3.5" />
-                                        </Button>
+                                        {isAdmin && (
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="w-7 h-7 text-red-600 hover:text-red-800 hover:bg-red-50"
+                                            onClick={() => {
+                                              if (window.confirm("Are you sure you want to delete this expense entry?")) {
+                                                onDeleteExpense(item._id);
+                                              }
+                                            }}
+                                            title="Delete Entry"
+                                          >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                          </Button>
+                                        )}
                                       </div>
                                     </TableCell>
                                   </TableRow>

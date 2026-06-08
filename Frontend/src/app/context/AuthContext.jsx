@@ -51,6 +51,13 @@ export function AuthProvider({ children }) {
     setUser(null);
   }, [token]);
 
+  // Check granular permission key directly (e.g. "cancel_invoice", "view_trips")
+  const hasGranularPermission = useCallback((key) => {
+    if (user?.role === "Super Admin") return true;
+    if (!user?.granularPermissions) return false;
+    return !!user.granularPermissions[key];
+  }, [user]);
+
   const hasPermission = useCallback((moduleName, action) => {
     if (user?.role === "Super Admin") return true;
     if (!user?.permissions) return false;
@@ -60,7 +67,7 @@ export function AuthProvider({ children }) {
   }, [user]);
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, logout, isAuthenticated: !!user, hasPermission }}>
+    <AuthContext.Provider value={{ user, token, loading, login, logout, isAuthenticated: !!user, hasPermission, hasGranularPermission }}>
       {children}
     </AuthContext.Provider>
   );

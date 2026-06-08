@@ -12,7 +12,7 @@ import {
   getShipmentsByDriver,
   getRelatedPlants,
 } from "../controllers/shipment.controller.js";
-import { authenticate, requirePermission } from "../middleware/auth.middleware.js";
+import { authenticate, requirePermission, requireSuperAdmin } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
@@ -33,6 +33,6 @@ router.get("/", requirePermission("Shipments", "view"), getShipments);
 router.get("/:id", requirePermission("Shipments", "view"), getShipmentById);
 router.patch("/:id/status", requirePermission("Shipments", "edit"), updateShipmentStatus);
 router.put("/:id", requirePermission("Shipments", "edit"), updateShipment);
-router.delete("/:id", requirePermission("Shipments", "delete"), deleteShipment);
+router.delete("/:id", requireSuperAdmin, deleteShipment);
 
 export default router;

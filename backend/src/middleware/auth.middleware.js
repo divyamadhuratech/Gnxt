@@ -30,6 +30,7 @@ export const authenticate = async (req, res, next) => {
       username: user.username,
       role: user.role,
       permissions: user.permissions || [],
+      granularPermissions: user.granularPermissions ? Object.fromEntries(user.granularPermissions) : {},
     };
     next();
   } catch (err) {
@@ -65,8 +66,11 @@ export const requirePermission = (moduleName, action) => {
     const hasModuleAccess = modulePerm && modulePerm[action?.toLowerCase()];
     const hasDashboardViewAccess = action?.toLowerCase() === "view" && 
       userPermissions.some(p => p.module?.toLowerCase() === "dashboard" && p.view);
+    const hasTripTrackingViewAccess = action?.toLowerCase() === "view" &&
+      (moduleName?.toLowerCase() === "vehicles" || moduleName?.toLowerCase() === "shipments") &&
+      userPermissions.some(p => p.module?.toLowerCase() === "trip tracking" && p.view);
 
-    if (!hasModuleAccess && !hasDashboardViewAccess) {
+    if (!hasModuleAccess && !hasDashboardViewAccess && !hasTripTrackingViewAccess) {
       return res.status(403).json({
         success: false,
         message: `Forbidden: You do not have permission to ${action} in ${moduleName}`,

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Outlet, NavLink, useLocation, useNavigate } from "react-router";
 import {
   LayoutDashboard,
@@ -122,12 +122,60 @@ const bottomNavItems = [
   },
 ];
 
+const REDIRECT_PAGES = [
+  { perm: "Dashboard",    path: "/" },
+  { perm: "Shipments",    path: "/shipments" },
+  { perm: "Trip Tracking",path: "/trips" },
+  { perm: "Invoices",     path: "/invoices" },
+  { perm: "Expenses",     path: "/expenses" },
+  { perm: "Vehicles",     path: "/vehicles" },
+  { perm: "Drivers",      path: "/drivers" },
+  { perm: "Reports",      path: "/reports" },
+  { perm: "Help & Support",path: "/help" },
+];
+
 export function Layout() {
   const { user, loading, logout, isAuthenticated } = useAuth();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+
+  const hasViewPermission = (moduleName) => {
+    if (user?.role === "Super Admin") return true;
+    if (!user?.permissions) return false;
+    const perm = user.permissions.find(p => p.module === moduleName);
+    return perm ? perm.view : false;
+  };
+
+  const getRequiredPermissionForPath = (path) => {
+    if (path === "/") return "Dashboard";
+    if (path.startsWith("/shipments")) return "Shipments";
+    if (path.startsWith("/trips") || path.startsWith("/tracking/")) return "Trip Tracking";
+    if (path.startsWith("/invoices")) return "Invoices";
+    if (path.startsWith("/expenses")) return "Expenses";
+    if (path.startsWith("/vehicles")) return "Vehicles";
+    if (path.startsWith("/drivers")) return "Drivers";
+    if (path.startsWith("/reports")) return "Reports";
+    if (path.startsWith("/help")) return "Help & Support";
+    if (path.startsWith("/settings")) return "Settings";
+    return null;
+  };
+
+  useEffect(() => {
+    if (loading || !isAuthenticated || !user) return;
+    if (user.role === "Super Admin") return;
+
+    const currentModule = getRequiredPermissionForPath(location.pathname);
+    if (currentModule) {
+      if (currentModule === "Settings" || !hasViewPermission(currentModule)) {
+        const firstPage = REDIRECT_PAGES.find(p => hasViewPermission(p.perm));
+        if (firstPage && firstPage.path !== location.pathname) {
+          navigate(firstPage.path, { replace: true });
+        }
+      }
+    }
+  }, [location.pathname, user, loading, isAuthenticated, navigate]);
 
   if (loading) {
     return (
@@ -164,14 +212,6 @@ export function Layout() {
       }),
     );
     return sectionMatch?.title || "Overview";
-  };
-
-  const hasViewPermission = (moduleName) => {
-    if (moduleName === "Dashboard") return true;
-    if (user?.role === "Super Admin") return true;
-    if (!user?.permissions) return false;
-    const perm = user.permissions.find(p => p.module === moduleName);
-    return perm ? perm.view : false;
   };
 
   return (

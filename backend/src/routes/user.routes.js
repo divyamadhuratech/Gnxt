@@ -7,6 +7,7 @@ import {
   resetPassword,
   deleteUser,
   updatePermissions,
+  updateRolePermissions,
   getActivityLog,
 } from "../controllers/user.controller.js";
 import { authenticate, requireSuperAdmin } from "../middleware/auth.middleware.js";
@@ -18,6 +19,7 @@ router.use(authenticate);
 
 router.get("/",                          getUsers);
 router.post("/",                         requireSuperAdmin, createUser);
+router.put("/role/permissions",          requireSuperAdmin, updateRolePermissions);
 router.put("/:id",                       requireSuperAdmin, updateUser);
 router.patch("/:id/status",              requireSuperAdmin, toggleUserStatus);
 router.patch("/:id/password",            requireSuperAdmin, resetPassword);

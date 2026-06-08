@@ -6,8 +6,11 @@ import { Input } from "../ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { Calendar, User, Car, Download, X, Search, CheckSquare, Square, Trash2, Eye } from "lucide-react";
 import { Badge } from "../ui/badge";
+import { useAuth } from "../../context/AuthContext";
 
 export function HistoryShipmentSheet({ open, onOpenChange, historyShipments = [], setSelectedShipment, setViewSheetOpen, onDeleted }) {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "Super Admin";
   const [dealerSearch, setDealerSearch] = useState("");
   const [vehicleSearch, setVehicleSearch] = useState("");
   const [dateSearch, setDateSearch] = useState("");
@@ -141,7 +144,7 @@ export function HistoryShipmentSheet({ open, onOpenChange, historyShipments = []
             </SheetDescription>
           </div>
           <div className="flex items-center gap-3">
-            {selectedIds.length > 0 && (
+            {selectedIds.length > 0 && isAdmin && (
               <>
                 <Button
                   variant="ghost"

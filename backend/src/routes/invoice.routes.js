@@ -10,7 +10,7 @@ import {
   addInvoice
 } from "../controllers/invoice.controller.js";
 import { upload } from "../middleware/upload.middleware.js";
-import { authenticate, requirePermission } from "../middleware/auth.middleware.js";
+import { authenticate, requirePermission, requireSuperAdmin } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
@@ -34,5 +34,5 @@ router.patch(
   requirePermission("Invoices", "edit"),
   toggleInvoiceCheck
 );
-router.delete("/:invoiceId", requirePermission("Invoices", "delete"), deleteInvoice);
+router.delete("/:invoiceId", requireSuperAdmin, deleteInvoice);
 export default router;

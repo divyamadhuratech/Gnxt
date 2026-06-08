@@ -22,9 +22,9 @@ export function PlantRow({
   setShipmentData,
   onDeleted,
 }) {
-  const { hasPermission } = useAuth();
+  const { user, hasPermission } = useAuth();
   const canEdit = hasPermission("Shipments", "edit");
-  const canDelete = hasPermission("Shipments", "delete");
+  const canDelete = user?.role === "Super Admin";
 
   const [openPlants, setOpenPlants] = useState(false);
   const sc = statusConfig[shipment.status] || { label: shipment.status || "N/A", className: "bg-gray-50 text-gray-700 border-gray-200" };

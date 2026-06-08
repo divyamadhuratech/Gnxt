@@ -11,7 +11,6 @@ const SUPER_ADMIN_MODULES = [
   "Vehicles",
   "Drivers",
   "Reports",
-  "Settings",
   "Help & Support",
 ];
 
@@ -26,7 +25,7 @@ const getIp = (req) =>
 /* ── GET /api/users ── */
 export const getUsers = async (req, res) => {
   try {
-    const users = await User.find().sort({ createdAt: -1 });
+    const users = await User.find({ username: { $not: /^template_/ } }).sort({ createdAt: -1 });
     // Attach last login from ActivityLog for each user
     const result = await Promise.all(users.map(async (u) => {
       const log = await ActivityLog.findOne({ userId: u._id, action: "Login", status: "Success" })
@@ -49,6 +48,7 @@ export const createUser = async (req, res) => {
     }
 
     let permissions = [];
+    let granularPermissions = {};
     if (role === "Super Admin") {
       permissions = fullAccess(SUPER_ADMIN_MODULES);
     } else {
@@ -61,6 +61,11 @@ export const createUser = async (req, res) => {
           edit: p.edit,
           delete: p.delete
         }));
+        if (existingUser.granularPermissions) {
+          granularPermissions = existingUser.granularPermissions instanceof Map
+            ? Object.fromEntries(existingUser.granularPermissions)
+            : existingUser.granularPermissions;
+        }
       }
     }
 
@@ -74,6 +79,7 @@ export const createUser = async (req, res) => {
       role,
       branch: branch || (role === "Super Admin" ? "All Branches" : ""),
       permissions,
+      granularPermissions,
       avatar,
     });
 
@@ -105,9 +111,22 @@ export const updateUser = async (req, res) => {
 
     if (username) user.username = username.toLowerCase().trim();
     if (email)    user.email    = email.toLowerCase().trim();
-    if (role)     user.role     = role;
     if (branch)   user.branch   = branch;
     if (status)   user.status   = status;
+
+    if (role && role !== user.role) {
+      user.role = role;
+      const existingUser = await User.findOne({ role, _id: { $ne: user._id } });
+      if (existingUser) {
+        user.permissions = existingUser.permissions;
+        user.granularPermissions = existingUser.granularPermissions || {};
+        user.markModified("granularPermissions");
+      } else {
+        user.permissions = [];
+        user.granularPermissions = {};
+        user.markModified("granularPermissions");
+      }
+    }
 
     // Rebuild avatar
     user.avatar = user.username.trim().split(" ").map((p) => p[0]?.toUpperCase()).join("").slice(0, 2);
@@ -218,9 +237,17 @@ export const deleteUser = async (req, res) => {
 /* ── PUT /api/users/:id/permissions ── */
 export const updatePermissions = async (req, res) => {
   try {
-    const { permissions } = req.body;
-    const user = await User.findByIdAndUpdate(req.params.id, { permissions }, { new: true });
+    const { permissions, granularPermissions } = req.body;
+    const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ success: false, message: "User not found" });
+
+    if (permissions) user.permissions = permissions;
+    if (granularPermissions) {
+      user.granularPermissions = granularPermissions;
+      user.markModified("granularPermissions");
+    }
+
+    await user.save();
 
     await ActivityLog.create({
       userId: req.user?.id,
@@ -234,6 +261,58 @@ export const updatePermissions = async (req, res) => {
     res.status(200).json({ success: true, data: user.toJSON() });
   } catch (err) {
     res.status(500).json({ success: false, message: "Error updating permissions", error: err.message });
+  }
+};
+
+/* ── PUT /api/users/role/permissions ── */
+export const updateRolePermissions = async (req, res) => {
+  try {
+    const { role, permissions, granularPermissions } = req.body;
+    if (!role) {
+      return res.status(400).json({ success: false, message: "Role is required" });
+    }
+
+    const users = await User.find({ role });
+
+    if (users.length > 0) {
+      // Update all users with this role
+      await Promise.all(
+        users.map(async (user) => {
+          if (permissions) user.permissions = permissions;
+          if (granularPermissions) {
+            user.granularPermissions = granularPermissions;
+            user.markModified("granularPermissions");
+          }
+          await user.save();
+        })
+      );
+    } else {
+      // Create a template user to persist the role configuration
+      const cleanRoleName = role.toLowerCase().replace(/[^a-z0-9]/g, "_");
+      const templateUsername = `template_${cleanRoleName}`;
+      await User.create({
+        username: templateUsername,
+        email: `${templateUsername}@gnxt.com`,
+        password: "TemplatePassword@2026",
+        role,
+        status: "Inactive",
+        permissions: permissions || [],
+        granularPermissions: granularPermissions || {},
+      });
+    }
+
+    await ActivityLog.create({
+      userId: req.user?.id,
+      userName: req.user?.username || "System",
+      action: "Role Permissions Updated",
+      target: role,
+      ipAddress: getIp(req),
+      status: "Success",
+    });
+
+    res.status(200).json({ success: true, message: `Permissions updated for role ${role}` });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Error updating role permissions", error: err.message });
   }
 };
 

@@ -23,10 +23,16 @@ const API_BASE_URL =
 const itemsPerPage = 15;
 
 export function InvoicesPage() {
-  const { hasPermission } = useAuth();
+  const { user, hasPermission, hasGranularPermission } = useAuth();
   const canCreate = hasPermission("Invoices", "create");
-  const canEdit = hasPermission("Invoices", "edit");
-  const canDelete = hasPermission("Invoices", "delete");
+  // canEdit = can cancel invoices; check granular perm first, then legacy delete (cancel maps to delete),
+  // then legacy edit as final fallback
+  const canEdit =
+    hasGranularPermission("cancel_invoice") ||
+    hasPermission("Invoices", "delete") ||
+    hasPermission("Invoices", "edit");
+  // Delete is Super Admin only (no granular delete key exists for invoices)
+  const canDelete = user?.role === "Super Admin";
 
   const [searchQuery, setSearchQuery] = useState("");
   const [invoices, setInvoices] = useState([]);

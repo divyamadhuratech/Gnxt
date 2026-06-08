@@ -48,6 +48,11 @@ const userSchema = new mongoose.Schema({
     type: [permissionSchema],
     default: [],
   },
+  granularPermissions: {
+    type: Map,
+    of: Boolean,
+    default: {},
+  },
   lastLogin: {
     type: Date,
     default: null,
