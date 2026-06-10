@@ -9,7 +9,7 @@ import {
 } from "../ui/dropdown-menu";
 import { TableRow, TableCell } from "../ui/table";
 import { Badge } from "../ui/badge";
-import { getPODConfig, statusConfig } from "./utils/shipmentStyles";
+import { getPODConfig, statusConfig, getDisplayStatus, getDeliveryProgress } from "./utils/shipmentStyles";
 import { useAuth } from "../../context/AuthContext";
 
 const API_BASE_URL = import.meta.env?.VITE_API_URL || "http://localhost:5000/api";
@@ -27,7 +27,12 @@ export function PlantRow({
   const canDelete = user?.role === "Super Admin";
 
   const [openPlants, setOpenPlants] = useState(false);
-  const sc = statusConfig[shipment.status] || { label: shipment.status || "N/A", className: "bg-gray-50 text-gray-700 border-gray-200" };
+  const displayStatus = getDisplayStatus(shipment);
+  const deliveryProgress = getDeliveryProgress(shipment);
+  const isPartialDelivered = deliveryProgress && deliveryProgress.delivered < deliveryProgress.total;
+  const sc = isPartialDelivered
+    ? { label: displayStatus, className: "bg-blue-50 text-blue-700 border-blue-200" }
+    : (statusConfig[shipment.status] || { label: displayStatus, className: "bg-gray-50 text-gray-700 border-gray-200" });
   const pod = getPODConfig(shipment);
 
   const dest = shipment.destinations?.[0] ?? {};

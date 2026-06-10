@@ -44,21 +44,7 @@ export function ShipmentList() {
   const activeShipmentsOnly = useMemo(() => {
     const list = Array.isArray(shipmentData) ? shipmentData : [];
     return list.filter(s => {
-      if (s.status === "Returned" || s.status === "Cancelled") return false;
-      if (s.status === "Delivered" || s.status === "Closed") {
-        const timestamp = s.deliveryDate || s.updatedAt || s.createdAt;
-        if (timestamp) {
-          const deliveryDate = new Date(timestamp);
-          const today = new Date();
-          if (
-            deliveryDate.getDate() !== today.getDate() ||
-            deliveryDate.getMonth() !== today.getMonth() ||
-            deliveryDate.getFullYear() !== today.getFullYear()
-          ) {
-            return false;
-          }
-        }
-      }
+      if (s.status === "Cancelled" || s.status === "Closed") return false;
       return true;
     });
   }, [shipmentData]);
@@ -66,29 +52,13 @@ export function ShipmentList() {
   const historyShipmentsOnly = useMemo(() => {
     const list = Array.isArray(shipmentData) ? shipmentData : [];
     return list.filter(s => {
-      if (s.status === "Returned" || s.status === "Cancelled") return true;
-      if (s.status === "Delivered" || s.status === "Closed") {
-        const timestamp = s.deliveryDate || s.updatedAt || s.createdAt;
-        if (timestamp) {
-          const deliveryDate = new Date(timestamp);
-          const today = new Date();
-          if (
-            deliveryDate.getDate() !== today.getDate() ||
-            deliveryDate.getMonth() !== today.getMonth() ||
-            deliveryDate.getFullYear() !== today.getFullYear()
-          ) {
-            return true;
-          }
-        }
-      }
+      if (s.status === "Cancelled" || s.status === "Closed") return true;
       return false;
     });
   }, [shipmentData]);
 
   const filteredShipments = useMemo(() => {
-    const list = (statusFilter === "Delivered" || statusFilter === "Cancelled" || statusFilter === "Returned" || statusFilter === "Closed")
-      ? (Array.isArray(shipmentData) ? shipmentData : [])
-      : activeShipmentsOnly;
+    const list = activeShipmentsOnly;
     return list.filter((s) => {
       const matchesSearch =
         searchQuery === "" ||
@@ -98,7 +68,7 @@ export function ShipmentList() {
         (s.destinations?.[0]?.plantReferenceNumber && s.destinations[0].plantReferenceNumber.toLowerCase().includes(searchQuery.toLowerCase())) ||
         (s.destinations?.[0]?.lrNumber && s.destinations[0].lrNumber.toLowerCase().includes(searchQuery.toLowerCase()));
 
-      const mappedStatus = s.status === "Closed" ? "Delivered" : s.status;
+      const mappedStatus = s.status;
       const matchesStatus = statusFilter === "all" || mappedStatus === statusFilter;
       const matchesDate = dateFilter === "all" || isWithinDateRange(s.createdAt, dateFilter);
 
@@ -112,25 +82,23 @@ export function ShipmentList() {
 
       return matchesSearch && matchesStatus && matchesDate && matchesPod;
     });
-  }, [activeShipmentsOnly, shipmentData, searchQuery, statusFilter, dateFilter, podFilter]);
+  }, [activeShipmentsOnly, searchQuery, statusFilter, dateFilter, podFilter]);
 
   const statusCounts = useMemo(() => {
-    const list = Array.isArray(shipmentData) ? shipmentData : [];
+    const list = activeShipmentsOnly;
     const counts = {
       all: activeShipmentsOnly.length,
       Pending: 0,
       "In Transit": 0,
       Delivered: 0,
-      Returned: 0,
       Cancelled: 0,
       filtered: filteredShipments.length,
     };
     list.forEach((s) => {
-      const mapped = s.status === "Closed" ? "Delivered" : s.status;
-      if (counts[mapped] !== undefined) counts[mapped]++;
+      if (counts[s.status] !== undefined) counts[s.status]++;
     });
     return counts;
-  }, [shipmentData, activeShipmentsOnly, filteredShipments.length]);
+  }, [activeShipmentsOnly, filteredShipments.length]);
 
   const API_BASE_URL = import.meta.env?.VITE_API_URL || "http://localhost:5000/api";
 

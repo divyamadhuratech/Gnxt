@@ -30,6 +30,6 @@ export const statusStyles = {
   "Waiting for Dispatch": { bg: "bg-blue-50 border-blue-200", text: "text-blue-700", dot: "bg-blue-500" },
   "In Transit": { bg: "bg-emerald-50 border-emerald-200", text: "text-emerald-700", dot: "bg-emerald-500" },
   Delivered: { bg: "bg-indigo-50 border-indigo-200", text: "text-indigo-700", dot: "bg-indigo-500" },
-  Returned: { bg: "bg-slate-50 border-slate-200", text: "text-slate-700", dot: "bg-slate-500" }
+  Closed: { bg: "bg-slate-50 border-slate-200", text: "text-slate-700", dot: "bg-slate-500" }
 };
 

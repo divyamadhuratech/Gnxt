@@ -89,7 +89,7 @@ export function HistoryShipmentSheet({ open, onOpenChange, historyShipments = []
             "Driver Name": s.driverName || "—",
             "Driver Phone": s.driverPhone || "",
             "Vehicle Info": s.vehicleNumber || "—",
-            "Status": s.status === "Closed" || s.status === "Returned" ? "Delivered" : (s.status || "—"),
+            "Status": s.status === "Closed" ? "Delivered" : (s.status || "—"),
             "Created Date": s.createdAt ? new Date(s.createdAt).toLocaleDateString("en-IN") : "—",
             "Delivery Date": s.deliveryDate ? new Date(s.deliveryDate).toLocaleDateString("en-IN") : "—",
           }
@@ -108,7 +108,7 @@ export function HistoryShipmentSheet({ open, onOpenChange, historyShipments = []
           "Driver Name": s.driverName || "—",
           "Driver Phone": s.driverPhone || "",
           "Vehicle Info": s.vehicleNumber || "—",
-          "Status": s.status === "Closed" || s.status === "Returned" ? "Delivered" : (s.status || "—"),
+          "Status": s.status === "Closed" ? "Delivered" : (s.status || "—"),
           "Created Date": s.createdAt ? new Date(s.createdAt).toLocaleDateString("en-IN") : "—",
           "Delivery Date": s.deliveryDate ? new Date(s.deliveryDate).toLocaleDateString("en-IN") : "—",
         };
@@ -362,12 +362,12 @@ export function HistoryShipmentSheet({ open, onOpenChange, historyShipments = []
                         <Badge
                           variant="outline"
                           className={
-                            (s.status === "Delivered" || s.status === "Closed" || s.status === "Returned")
+                            (s.status === "Delivered" || s.status === "Closed")
                               ? "bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px]"
                               : "bg-red-50 text-red-700 border-red-200 text-[10px]"
                           }
                         >
-                          {(s.status === "Closed" || s.status === "Returned") ? "Delivered" : s.status}
+                          {s.status === "Closed" ? "Delivered" : s.status}
                         </Badge>
                       </TableCell>
 

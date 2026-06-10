@@ -8,6 +8,7 @@ import { VehicleDriverDetails } from "./view/VehicleDriverDetails";
 import { ItemsBreakdown } from "./view/ItemsBreakdown";
 import { ShipmentTimeline } from "./view/ShipmentTimeline";
 import { useAuth } from "../../context/AuthContext";
+import { getDisplayStatus } from "./utils/shipmentStyles";
 
 const API_BASE_URL = import.meta.env?.VITE_API_URL || "http://localhost:5000/api";
 const GPS_POLL_MS = 10_000; // refresh GPS every 10 s while sheet is open
@@ -16,9 +17,9 @@ const statusConfig = {
   Pending: { className: "bg-amber-50 text-amber-700 border-amber-200", dotColor: "bg-amber-500" },
   "In Transit": { className: "bg-blue-50 text-blue-700 border-blue-200", dotColor: "bg-blue-500" },
   Delivered: { className: "bg-emerald-50 text-emerald-700 border-emerald-200", dotColor: "bg-emerald-500" },
+  "Delivered Partial": { className: "bg-blue-50 text-blue-700 border-blue-200", dotColor: "bg-blue-500" },
   Cancelled: { className: "bg-red-50 text-red-700 border-red-200", dotColor: "bg-red-500" },
   Closed: { className: "bg-slate-100 text-slate-800 border-slate-300", dotColor: "bg-slate-500" },
-  Returned: { className: "bg-slate-100 text-slate-700 border-slate-300", dotColor: "bg-slate-500" },
 };
 
 /* ── Build detail object from real shipment data ── */
@@ -48,7 +49,7 @@ function buildDetail(s, liveGps) {
   const delivered = fmt(s.deliveryDate);
   const returned = fmt(s.returnedDate);
 
-  const isDelivered = s.status === "Delivered" || s.status === "Returned" || s.status === "Closed";
+  const isDelivered = s.status === "Delivered" || s.status === "Closed";
   const isInTransit = s.status === "In Transit";
   const isPending = s.status === "Pending";
 
@@ -58,7 +59,7 @@ function buildDetail(s, liveGps) {
     { step: "Dispatched", timestamp: dispatched, completed: !!s.dispatchDate, active: false },
     { step: "In Transit", timestamp: dispatched !== "—" ? dispatched : "—", completed: isInTransit || isDelivered, active: isInTransit },
     { step: "Delivered", timestamp: delivered, completed: isDelivered, active: false },
-    { step: "Returned", timestamp: returned, completed: s.status === "Returned", active: false },
+    { step: "Closed", timestamp: returned, completed: s.status === "Closed", active: false },
   ];
 
   const items = (s.destinations ?? []).flatMap((dest) => {
@@ -184,7 +185,13 @@ export function ViewShipmentSheet({ open, onOpenChange, shipment, onStatusChange
 
   const s = fullShipment ?? shipment;
   const detail = buildDetail(s, liveGps);
-  const sc = statusConfig[s.status] ?? statusConfig["Pending"];
+  const displayStatus = getDisplayStatus(s);
+  const deliveryProgress = s.destinations?.length > 0
+    ? { delivered: s.destinations.filter(d => d.status === "Delivered").length, total: s.destinations.length }
+    : null;
+  const isPartialDelivered = deliveryProgress && deliveryProgress.delivered < deliveryProgress.total && deliveryProgress.delivered > 0 && s.status === "Delivered";
+  const scKey = isPartialDelivered ? "Delivered Partial" : s.status;
+  const sc = statusConfig[scKey] ?? statusConfig["Pending"];
 
   const totalQty = s.totalQuantity ?? 0;
   const totalWt = s.totalWeightKg ?? 0;
@@ -292,7 +299,7 @@ export function ViewShipmentSheet({ open, onOpenChange, shipment, onStatusChange
             </div>
             <span className={`inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border ${sc.className}`}>
               <span className={`w-1.5 h-1.5 rounded-full ${sc.dotColor}`} />
-              {s.status}
+              {getDisplayStatus(s)}
             </span>
           </div>
         </div>
@@ -345,28 +352,35 @@ export function ViewShipmentSheet({ open, onOpenChange, shipment, onStatusChange
                 <Edit className="w-4 h-4" />Edit Shipment
               </Button>
             )}
-            {canEdit && s.status === "In Transit" && (
-              <Button className="gap-2 bg-[#1d4ed8] hover:bg-[#1e40af] text-white shadow-sm" onClick={() => handleStatusUpdate("Delivered")}>
-                <CheckCircle2 className="w-4 h-4" />Mark as Delivered
-              </Button>
-            )}
-            {canEdit && s.status === "Delivered" && (
-              <>
+            {s.status === "In Transit" && (() => {
+              const totalDests = s.destinations?.length || 0;
+              const deliveredDests = s.destinations?.filter(d => d.status === "Delivered").length || 0;
+              return (
+                <span className="inline-flex items-center gap-1.5 text-xs px-3.5 py-2 font-bold bg-blue-50 text-blue-700 border border-blue-200 rounded-lg">
+                  <CheckCircle2 className="w-4 h-4 text-blue-600" />
+                  {deliveredDests > 0 ? `Delivered ${deliveredDests}/${totalDests}` : "Awaiting Delivery"}
+                </span>
+              );
+            })()}
+            {canEdit && s.status === "Delivered" && (() => {
+              const totalDests = s.destinations?.length || 0;
+              const deliveredDests = s.destinations?.filter(d => d.status === "Delivered").length || 0;
+              const allDelivered = totalDests > 0 && deliveredDests === totalDests;
+              return allDelivered ? (
                 <Button
                   className="gap-2 bg-slate-700 hover:bg-slate-800 text-white shadow-sm"
                   onClick={() => handleStatusUpdate("Closed")}
                 >
                   <CheckCircle2 className="w-4 h-4" />Close Shipment
                 </Button>
-              </>
-            )}
+              ) : (
+                <span className="inline-flex items-center gap-1.5 text-xs px-3.5 py-2 font-bold bg-amber-50 text-amber-700 border border-amber-200 rounded-lg">
+                  <CheckCircle2 className="w-4 h-4 text-amber-600" />
+                  Delivery Pending ({deliveredDests}/{totalDests})
+                </span>
+              );
+            })()}
             {s.status === "Closed" && (
-              <span className="inline-flex items-center gap-1.5 text-xs px-3.5 py-2 font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                Shipment Completed
-              </span>
-            )}
-            {s.status === "Returned" && (
               <span className="inline-flex items-center gap-1.5 text-xs px-3.5 py-2 font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                 Shipment Completed

@@ -1,8 +1,8 @@
 import Shipment from "../models/shipment.model.js";
-import Vehicle  from "../models/Vehicle.js";
-import Driver   from "../models/Driver.js";
-import Expense  from "../models/expense.model.js";
-import Invoice  from "../models/invoice.model.js";
+import Vehicle from "../models/Vehicle.js";
+import Driver from "../models/Driver.js";
+import Expense from "../models/expense.model.js";
+import Invoice from "../models/invoice.model.js";
 
 /**
  * GET /api/reports/stats
@@ -132,7 +132,7 @@ export const getShipmentStats = async (req, res) => {
     // ── Compute Summary Stats ──────────────────────────
     const totalShipments = processedShipments.length;
     const activeShipments = processedShipments.filter((s) => ["Pending", "In Transit"].includes(s.status)).length;
-    const completedShipmentsCount = processedShipments.filter((s) => ["Delivered", "Closed", "Returned"].includes(s.status)).length;
+    const completedShipmentsCount = processedShipments.filter((s) => ["Delivered", "Closed"].includes(s.status)).length;
     const totalExpensesSum = expenses.reduce((sum, e) => sum + (e.totalAmount || 0), 0);
     const completedInvoicesCount = completedInvoices.length;
 
@@ -151,7 +151,7 @@ export const getShipmentStats = async (req, res) => {
       }
       const perf = driverPerformanceMap.get(name);
       perf.totalTrips += 1;
-      if (["Delivered", "Closed", "Returned"].includes(s.status)) {
+      if (["Delivered", "Closed"].includes(s.status)) {
         perf.completedTrips += 1;
       }
       perf.totalWeightKg += s.totalWeightKg || 0;
@@ -173,7 +173,7 @@ export const getShipmentStats = async (req, res) => {
       }
       const perf = vehiclePerformanceMap.get(num);
       perf.totalTrips += 1;
-      if (["Delivered", "Closed", "Returned"].includes(s.status)) {
+      if (["Delivered", "Closed"].includes(s.status)) {
         perf.completedTrips += 1;
       }
       perf.totalWeightKg += s.totalWeightKg || 0;
@@ -284,8 +284,8 @@ export const getFilterOptions = async (req, res) => {
       success: true,
       data: {
         vehicles: vehicles.sort(),
-        drivers:  drivers.sort(),
-        dealers:  dealers.sort(),
+        drivers: drivers.sort(),
+        dealers: dealers.sort(),
       },
     });
   } catch (err) {

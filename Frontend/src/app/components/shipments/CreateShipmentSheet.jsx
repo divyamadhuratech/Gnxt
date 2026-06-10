@@ -9,11 +9,11 @@ import { VehicleDriverSection } from "./create/VehicleDriverSection";
 import { ShipmentSummaryCard } from "./create/ShipmentSummaryCard";
 
 const API_BASE_URL = import.meta.env?.VITE_API_URL || "http://localhost:5000/api";
-const DRAFT_KEY    = "shipment_draft";
+const DRAFT_KEY = "shipment_draft";
 
 const generateId = () => {
-  return typeof crypto !== 'undefined' && crypto.randomUUID 
-    ? crypto.randomUUID() 
+  return typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
     : Date.now().toString(36) + Math.random().toString(36).substring(2);
 };
 
@@ -34,7 +34,7 @@ function saveDraft(dealerEntries, vehicleId, driverId) {
       DRAFT_KEY,
       JSON.stringify({ dealerEntries, vehicleId, driverId, savedAt: new Date().toISOString() })
     );
-  } catch (_) {}
+  } catch (_) { }
 }
 
 function loadDraft() {
@@ -45,20 +45,20 @@ function loadDraft() {
 }
 
 function clearDraft() {
-  try { localStorage.removeItem(DRAFT_KEY); } catch (_) {}
+  try { localStorage.removeItem(DRAFT_KEY); } catch (_) { }
 }
 
 export function CreateShipmentSheet({ open, onOpenChange, onCreated, editShipment }) {
-  const [dealerEntries, setDealerEntries]     = useState([emptyEntry()]);
-  const [vehicleId, setVehicleId]             = useState("");
-  const [vehicleOpen, setVehicleOpen]         = useState(false);
-  const [driverId, setDriverId]               = useState("");
-  const [submitting, setSubmitting]           = useState(false);
-  const [error, setError]                     = useState("");
+  const [dealerEntries, setDealerEntries] = useState([emptyEntry()]);
+  const [vehicleId, setVehicleId] = useState("");
+  const [vehicleOpen, setVehicleOpen] = useState(false);
+  const [driverId, setDriverId] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
   const [createdShipment, setCreatedShipment] = useState(null);
-  const [nextIds, setNextIds]                 = useState(null);
-  const [draftSaved, setDraftSaved]           = useState(false);
-  const [hasDraft, setHasDraft]               = useState(false);
+  const [nextIds, setNextIds] = useState(null);
+  const [draftSaved, setDraftSaved] = useState(false);
+  const [hasDraft, setHasDraft] = useState(false);
 
   const isEditMode = !!editShipment;
 
@@ -97,7 +97,7 @@ export function CreateShipmentSheet({ open, onOpenChange, onCreated, editShipmen
       fetch(`${API_BASE_URL}/shipments/next-id`)
         .then((r) => r.json())
         .then((res) => { if (res.success) setNextIds(res.data); })
-        .catch(() => {});
+        .catch(() => { });
     }
   }, [open, editShipment]);
 
@@ -105,9 +105,9 @@ export function CreateShipmentSheet({ open, onOpenChange, onCreated, editShipmen
   const totalTubesAll = dealerEntries.reduce((s, e) => s + (e.totalTubes || 0), 0);
   const totalFlapsAll = dealerEntries.reduce((s, e) => s + (e.totalFlaps || 0), 0);
   const totalQuantity = totalTyresAll + totalTubesAll + totalFlapsAll;
-  const totalWeight   = dealerEntries.reduce((s, e) => s + (parseFloat(e.weightKg) || 0), 0);
+  const totalWeight = dealerEntries.reduce((s, e) => s + (parseFloat(e.weightKg) || 0), 0);
 
-  const addEntry    = () => setDealerEntries((p) => [...p, emptyEntry()]);
+  const addEntry = () => setDealerEntries((p) => [...p, emptyEntry()]);
   const removeEntry = (id) => setDealerEntries((p) => p.filter((e) => e.id !== id));
   const updateEntry = (id, field, value) =>
     setDealerEntries((p) => p.map((e) => (e.id === id ? { ...e, [field]: value } : e)));
@@ -179,7 +179,7 @@ export function CreateShipmentSheet({ open, onOpenChange, onCreated, editShipmen
       return;
     }
     if (!vehicleId) { setError("Please select a vehicle"); return; }
-    if (!driverId)  { setError("Please select a driver");  return; }
+    if (!driverId) { setError("Please select a driver"); return; }
 
     setSubmitting(true);
     try {
@@ -197,7 +197,7 @@ export function CreateShipmentSheet({ open, onOpenChange, onCreated, editShipmen
         driverId,
       };
 
-      const url    = isEditMode ? `${API_BASE_URL}/shipments/${editShipment._id}` : `${API_BASE_URL}/shipments`;
+      const url = isEditMode ? `${API_BASE_URL}/shipments/${editShipment._id}` : `${API_BASE_URL}/shipments`;
       const method = isEditMode ? "PUT" : "POST";
 
       const res = await fetch(url, {
@@ -338,9 +338,9 @@ export function CreateShipmentSheet({ open, onOpenChange, onCreated, editShipmen
             />
             <div className="mt-5">
               <VehicleDriverSection
-                vehicleId={vehicleId}     setVehicleId={setVehicleId}
+                vehicleId={vehicleId} setVehicleId={setVehicleId}
                 vehicleOpen={vehicleOpen} setVehicleOpen={setVehicleOpen}
-                driverId={driverId}       setDriverId={setDriverId}
+                driverId={driverId} setDriverId={setDriverId}
               />
             </div>
 

@@ -48,9 +48,9 @@ export function TripTrackingPage() {
 
   const getCombinedVehicles = () => {
     return vehicles.map(vehicle => {
-      // Find active shipment for this vehicle (active until Returned or Cancelled)
+      // Find active shipment for this vehicle (active until Closed or Cancelled)
       const activeShipment = shipments.find(
-        s => s.vehicleNumber === vehicle.vehicleNo && s.status !== "Returned" && s.status !== "Cancelled"
+        s => s.vehicleNumber === vehicle.vehicleNo && s.status !== "Closed" && s.status !== "Cancelled"
       );
 
       // Find GPS location for this vehicle
@@ -58,14 +58,14 @@ export function TripTrackingPage() {
 
       const isDispatched = activeShipment?.status === "In Transit";
       const isReturning = activeShipment?.status === "Closed";
-      
+
       let finalStatus = "Idle";
       if (activeShipment) {
         if (activeShipment.status === "Pending") {
           finalStatus = "Waiting for Dispatch";
         } else if (activeShipment.status === "In Transit") {
           finalStatus = "In Transit";
-        } else if (activeShipment.status === "Closed") {
+        } else if (activeShipment.status === "Delivered" || activeShipment.status === "Closed") {
           finalStatus = "Returning"; // Delivery done, vehicle heading back
         } else {
           finalStatus = activeShipment.status;
@@ -114,7 +114,7 @@ export function TripTrackingPage() {
     if (!shipmentDbId) return;
     try {
       const res = await axios.patch(`${API_BASE_URL}/shipments/${shipmentDbId}/status`, {
-        status: "Returned",
+        status: "Closed",
       });
       if (res.data?.success) {
         // Refresh tracking data to reflect freed vehicle/driver
@@ -134,17 +134,17 @@ export function TripTrackingPage() {
       v.shipmentId.toLowerCase().includes(searchQuery.toLowerCase()) ||
       v.dealerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       v.currentLocation.toLowerCase().includes(searchQuery.toLowerCase());
-    
+
     const matchesStatus =
       statusFilter === "all" ? true :
-      statusFilter === "active" ? v.status !== "Idle" :
-      v.status === statusFilter;
-    
+        statusFilter === "active" ? v.status !== "Idle" :
+          v.status === statusFilter;
+
     const matchesType =
       vehicleTypeFilter === "all" || v.vehicleType === vehicleTypeFilter;
-    
+
     const matchesDispatch = showNotDispatched ? !v.dispatched : true;
-    
+
     return matchesSearch && matchesStatus && matchesType && matchesDispatch;
   });
 

@@ -283,6 +283,7 @@ export function SettingsPage() {
   const [rolePermissions, setRolePermissions] = useState({});
   const [savingPermissions, setSavingPermissions] = useState(false);
   const [expandedModules, setExpandedModules] = useState({});
+  const [permissionNotification, setPermissionNotification] = useState(null);
 
   // Dialog states
   const [userDialogOpen, setUserDialogOpen] = useState(false);
@@ -349,22 +350,7 @@ export function SettingsPage() {
     setExpandedModules(init);
   }, []);
 
-  // Redirect non-admin users to first accessible page
-  useEffect(() => {
-    if (!currentUser) return;
-    if (currentUser.role === "Super Admin") return;
-
-    const hasPermission = (moduleName) => {
-      if (!currentUser.permissions) return false;
-      const perm = currentUser.permissions.find(p => p.module === moduleName);
-      return perm ? perm.view : false;
-    };
-
-    const target = REDIRECT_PAGES.find(p => hasPermission(p.perm));
-    navigate(target ? target.path : "/", { replace: true });
-  }, [currentUser, navigate]);
-
-  // While redirect is pending, render nothing
+  // Settings page is Super Admin only - Layout.jsx handles redirect for non-admins
   if (currentUser?.role !== "Super Admin") return null;
 
   const initializePermissions = (fetchedUsers, roleTemplates = {}) => {
@@ -607,10 +593,12 @@ export function SettingsPage() {
       }
       await fetchUsers();
       fetchLogs();
-      alert("Permissions updated successfully for this role.");
+      setPermissionNotification({ type: "success", message: "Permissions updated successfully for this role." });
+      setTimeout(() => setPermissionNotification(null), 3000);
     } catch (err) {
       console.error("Error updating permissions:", err);
-      alert("Failed to update permissions.");
+      setPermissionNotification({ type: "error", message: err.message || "Failed to update permissions." });
+      setTimeout(() => setPermissionNotification(null), 4000);
     } finally {
       setSavingPermissions(false);
     }
@@ -903,6 +891,21 @@ export function SettingsPage() {
                       style={{ width: `${(enabledPermsCount / totalPermsCount) * 100}%` }}
                     />
                   </div>
+                </div>
+              )}
+
+              {/* Permission save notification */}
+              {permissionNotification && (
+                <div className={`mt-3 flex items-center gap-2 p-3 rounded-xl border text-xs font-medium transition-all ${
+                  permissionNotification.type === "success"
+                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                    : "bg-red-50 text-red-700 border-red-200"
+                }`}>
+                  {permissionNotification.type === "success"
+                    ? <CheckCircle className="w-4 h-4 shrink-0" />
+                    : <AlertCircle className="w-4 h-4 shrink-0" />
+                  }
+                  {permissionNotification.message}
                 </div>
               )}
             </div>

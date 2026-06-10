@@ -196,8 +196,8 @@ export function Layout() {
     if (user.role === "Super Admin") return;
 
     const currentModule = getRequiredPermissionForPath(location.pathname);
-    if (currentModule) {
-      if (currentModule === "Settings" || !hasViewPermission(currentModule)) {
+    if (currentModule && currentModule !== "Settings") {
+      if (!hasViewPermission(currentModule)) {
         const firstPage = REDIRECT_PAGES.find(p => hasViewPermission(p.perm));
         if (firstPage && firstPage.path !== location.pathname) {
           navigate(firstPage.path, { replace: true });

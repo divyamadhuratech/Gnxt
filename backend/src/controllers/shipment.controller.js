@@ -234,7 +234,7 @@ export const getShipmentById = async (req, res) => {
 export const updateShipmentStatus = async (req, res) => {
   try {
     const { status, podReceiverName, podRemarks, podImages, destinationId, dispatchDate: manualDispatchDate, returnedDate: manualReturnedDate } = req.body;
-    const allowed = ["Pending", "In Transit", "Delivered", "Returned", "Cancelled", "Closed"];
+    const allowed = ["Pending", "In Transit", "Delivered", "Cancelled", "Closed"];
     if (!allowed.includes(status)) {
       return res.status(400).json({ success: false, message: "Invalid status" });
     }
@@ -296,7 +296,7 @@ export const updateShipmentStatus = async (req, res) => {
       status,
       ...(status === "Delivered" ? { deliveryDate: new Date() } : {}),
       ...(status === "In Transit" ? { dispatchDate: manualDispatchDate ? new Date(manualDispatchDate) : new Date() } : {}),
-      ...(status === "Returned" ? { returnedDate: manualReturnedDate ? new Date(manualReturnedDate) : new Date() } : {}),
+      ...(status === "Closed" ? { returnedDate: manualReturnedDate ? new Date(manualReturnedDate) : new Date() } : {}),
       ...(podReceiverName !== undefined ? { podReceiverName } : {}),
       ...(podRemarks !== undefined ? { podRemarks } : {}),
       ...(podImages !== undefined ? { podImages } : {}),
@@ -312,9 +312,7 @@ export const updateShipmentStatus = async (req, res) => {
       .lean();
     if (!shipment) return res.status(404).json({ success: false, message: "Shipment not found" });
 
-    // Free vehicle & driver when returned or cancelled
-    // (only if no other active shipment keeps them busy)
-    if (status === "Returned" || status === "Cancelled") {
+    if (status === "Closed" || status === "Cancelled") {
       const vId = shipment.vehicleId?._id || shipment.vehicleId;
       const dId = shipment.driverId?._id || shipment.driverId;
 
@@ -322,7 +320,7 @@ export const updateShipmentStatus = async (req, res) => {
         const otherActive = await Shipment.findOne({
           _id: { $ne: shipment._id },
           vehicleId: vId,
-          status: { $in: ["Pending", "In Transit", "Delivered", "Closed"] },
+          status: { $in: ["Pending", "In Transit", "Delivered"] },
         }).lean();
         if (!otherActive) {
           await Vehicle.findByIdAndUpdate(vId, { availability: "Available", status: "Idle" });
@@ -333,7 +331,7 @@ export const updateShipmentStatus = async (req, res) => {
         const otherActive = await Shipment.findOne({
           _id: { $ne: shipment._id },
           driverId: dId,
-          status: { $in: ["Pending", "In Transit", "Delivered", "Closed"] },
+          status: { $in: ["Pending", "In Transit", "Delivered"] },
         }).lean();
         if (!otherActive) {
           await Driver.findByIdAndUpdate(dId, { tripStatus: "Idle", assignedVehicle: null });
@@ -367,7 +365,7 @@ export const updateShipmentStatus = async (req, res) => {
       let deliveredAt = null;
       if (status === "In Transit") {
         targetInvoiceStatus = "In Transit";
-      } else if (status === "Delivered" || status === "Closed" || status === "Returned") {
+      } else if (status === "Delivered" || status === "Closed") {
         targetInvoiceStatus = "Delivered";
         deliveredAt = new Date();
       } else if (status === "Cancelled") {
@@ -520,7 +518,7 @@ export const updateShipment = async (req, res) => {
         let deliveredAt = null;
         if (targetStatus === "In Transit") {
           invoiceStatus = "In Transit";
-        } else if (targetStatus === "Delivered" || targetStatus === "Closed" || targetStatus === "Returned") {
+        } else if (targetStatus === "Delivered" || targetStatus === "Closed") {
           invoiceStatus = "Delivered";
           deliveredAt = new Date();
         } else if (targetStatus === "Cancelled") {
@@ -569,7 +567,7 @@ export const deleteShipment = async (req, res) => {
       const otherActive = await Shipment.findOne({
         _id: { $ne: shipment._id },
         vehicleId: vId,
-        status: { $in: ["Pending", "In Transit", "Delivered", "Closed"] },
+        status: { $in: ["Pending", "In Transit", "Delivered"] },
       }).lean();
       if (!otherActive) {
         await Vehicle.findByIdAndUpdate(vId, { availability: "Available", status: "Idle" });
@@ -581,7 +579,7 @@ export const deleteShipment = async (req, res) => {
       const otherActive = await Shipment.findOne({
         _id: { $ne: shipment._id },
         driverId: dId,
-        status: { $in: ["Pending", "In Transit", "Delivered", "Closed"] },
+        status: { $in: ["Pending", "In Transit", "Delivered"] },
       }).lean();
       if (!otherActive) {
         await Driver.findByIdAndUpdate(dId, { tripStatus: "Idle", assignedVehicle: null });
@@ -601,7 +599,7 @@ export const deleteShipment = async (req, res) => {
         const otherShipment = await Shipment.findOne({
           _id: { $ne: shipment._id },
           "destinations.invoiceIds": invId,
-          status: { $in: ["Pending", "In Transit", "Delivered", "Closed", "Returned"] }
+          status: { $in: ["Pending", "In Transit", "Delivered", "Closed"] }
         }).lean();
         
         if (!otherShipment) {

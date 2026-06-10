@@ -28,20 +28,20 @@ export function VehicleTrackingPage() {
       const res = await fetch(`${API_BASE}/shipments?limit=100`);
       const json = await res.json();
       if (json.success && json.data) {
-        // Find active shipment for this vehicleNumber which is not Returned and not Cancelled
+        // Find active shipment for this vehicleNumber which is not Closed and not Cancelled
         const active = json.data.find(
-          (s) => s.vehicleNumber === vehicleId && s.status !== "Returned" && s.status !== "Cancelled"
+          (s) => s.vehicleNumber === vehicleId && s.status !== "Closed" && s.status !== "Cancelled"
         );
         if (active) {
           setActiveShipment(active);
           setDispatched(active.status !== "Pending");
         } else {
-          // If no active trip, check if there is a recently returned trip for display
-          const recentlyReturned = json.data.find(
-            (s) => s.vehicleNumber === vehicleId && s.status === "Returned"
+          // If no active trip, check if there is a recently closed trip for display
+          const recentlyClosed = json.data.find(
+            (s) => s.vehicleNumber === vehicleId && s.status === "Closed"
           );
-          setActiveShipment(recentlyReturned || null);
-          setDispatched(recentlyReturned ? true : false);
+          setActiveShipment(recentlyClosed || null);
+          setDispatched(recentlyClosed ? true : false);
         }
       }
     } catch (err) {
@@ -95,7 +95,7 @@ export function VehicleTrackingPage() {
       const res = await fetch(`${API_BASE}/shipments/${activeShipment._id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "Returned", returnedDate: selectedDateTime }),
+        body: JSON.stringify({ status: "Closed", returnedDate: selectedDateTime }),
       });
       const json = await res.json();
       if (json.success) {
@@ -141,7 +141,7 @@ export function VehicleTrackingPage() {
 
     // 3. In Transit (Active at same time when dispatched)
     const isInTransit = activeShipment.status === "In Transit";
-    const completedTransit = activeShipment.status === "Delivered" || activeShipment.status === "Returned" || activeShipment.status === "Closed";
+    const completedTransit = activeShipment.status === "Delivered" || activeShipment.status === "Closed";
     timeline.push({
       step: "In Transit",
       timestamp: activeShipment.dispatchDate
@@ -152,8 +152,8 @@ export function VehicleTrackingPage() {
       detail: isInTransit ? "Vehicle is actively in transit towards the destination." : null
     });
 
-    // 4. Cargo Delivered (Delivered or Returned or Closed)
-    const isDelivered = activeShipment.status === "Delivered" || activeShipment.status === "Returned" || activeShipment.status === "Closed";
+    // 4. Cargo Delivered (Delivered or Closed)
+    const isDelivered = activeShipment.status === "Delivered" || activeShipment.status === "Closed";
     timeline.push({
       step: "Cargo Delivered",
       timestamp: activeShipment.deliveryDate
@@ -163,16 +163,16 @@ export function VehicleTrackingPage() {
       active: activeShipment.status === "Delivered" || activeShipment.status === "Closed",
     });
 
-    // 5. Returned (Completed upon clicking returned button)
-    const isReturned = activeShipment.status === "Returned";
+    // 5. Closed (Completed upon clicking returned/closed button)
+    const isClosed = activeShipment.status === "Closed";
     timeline.push({
-      step: "Returned",
+      step: "Closed",
       timestamp: activeShipment.returnedDate
         ? new Date(activeShipment.returnedDate).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })
         : "---",
-      completed: isReturned,
+      completed: isClosed,
       active: false,
-      detail: isReturned ? "Vehicle arrived back at factory/warehouse. Available." : null
+      detail: isClosed ? "Vehicle arrived back at factory/warehouse. Available." : null
     });
   }
 

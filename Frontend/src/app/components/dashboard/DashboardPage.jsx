@@ -54,7 +54,7 @@ export function DashboardPage() {
           .filter(s => s.status !== "Delivered" && s.status !== "Cancelled")
           .map(formatShipmentForTable);
         const history = shipments
-          .filter(s => ["Delivered", "Cancelled", "Closed", "Returned"].includes(s.status))
+          .filter(s => ["Delivered", "Cancelled", "Closed"].includes(s.status))
           .map(formatShipmentForTable);
 
         setCurrentShipments(active);
@@ -119,7 +119,7 @@ export function DashboardPage() {
   } else if (activeStatView === "Deliveries Today") {
     const todayStr = new Date().toDateString();
     baseData = historicalShipments.filter(s => {
-      const isCorrectStatus = ["Delivered", "Closed", "Returned"].includes(s.status);
+      const isCorrectStatus = ["Delivered", "Closed"].includes(s.status);
       const deliveryDate = new Date(s.originalData.deliveryDate || s.originalDate).toDateString();
       return isCorrectStatus && deliveryDate === todayStr;
     });

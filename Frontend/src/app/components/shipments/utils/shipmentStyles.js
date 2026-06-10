@@ -1,5 +1,29 @@
 export const createdByOptions = ["Admin", "Manager", "Operator"];
 
+export function getDeliveryProgress(shipment) {
+  if (!shipment || !shipment.destinations || shipment.destinations.length === 0) return null;
+  const total = shipment.destinations.length;
+  const delivered = shipment.destinations.filter(d => d.status === "Delivered").length;
+  if (delivered === 0) return null;
+  return { delivered, total };
+}
+
+export function getDisplayStatus(shipment) {
+  if (!shipment) return "N/A";
+  if (shipment.status === "Closed") return "Closed";
+  if (shipment.status === "Cancelled") return "Cancelled";
+  if (shipment.status === "Pending") return "Pending";
+  if (shipment.status === "In Transit") return "In Transit";
+  if (shipment.status === "Delivered") {
+    const progress = getDeliveryProgress(shipment);
+    if (progress && progress.delivered < progress.total) {
+      return `Delivered ${progress.delivered}/${progress.total}`;
+    }
+    return "Delivered";
+  }
+  return shipment.status || "N/A";
+}
+
 export const statusConfig = {
   Pending: {
     label: "Pending",
@@ -21,9 +45,9 @@ export const statusConfig = {
     label: "Closed",
     className: "bg-slate-100 text-slate-800 border-slate-300",
   },
-  Returned: {
-    label: "Returned",
-    className: "bg-slate-100 text-slate-700 border-slate-300",
+  "Delivered Partial": {
+    label: "Delivered",
+    className: "bg-blue-50 text-blue-700 border-blue-200",
   },
 };
 

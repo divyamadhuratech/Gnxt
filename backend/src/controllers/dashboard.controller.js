@@ -29,7 +29,7 @@ export const getDashboardStats = async (req, res) => {
         ]
       }),
       Shipment.countDocuments({ status: "In Transit", createdAt: { $gte: sevenDaysAgo } }), // Pending Delivery is often same as In Transit or specific state
-      Shipment.countDocuments({ status: { $in: ["Delivered", "Closed", "Returned"] }, deliveryDate: { $gte: today } })
+      Shipment.countDocuments({ status: { $in: ["Delivered", "Closed"] }, deliveryDate: { $gte: today } })
     ]);
 
     const stats = [

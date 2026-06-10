@@ -57,9 +57,8 @@ function DestinationPODCard({
   const isDestDelivered = dest.status === "Delivered";
   const isPodSaved = !!(dest.podImages?.length > 0 || dest.podReceiverName || dest.podRemarks);
 
-  // Decide view modes based on shipmentStatus
   const isPending = shipmentStatus === "Pending";
-  const isClosed = shipmentStatus === "Closed" || shipmentStatus === "Cancelled" || shipmentStatus === "Returned" || !canEdit;
+  const isClosed = shipmentStatus === "Cancelled" || shipmentStatus === "Closed";
 
   const lrDisplay = dest.lrNumber || `LR-TEMP-${index + 1}`;
 
@@ -158,15 +157,8 @@ function DestinationPODCard({
         <div className="space-y-4 pl-0 md:pl-6 pt-4 md:pt-0">
 
           {/* Conditional rendering based on shipmentStatus */}
-          {isPending ? (
-            /* 1. Shipment is Pending (Awaiting Dispatch) */
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-center">
-              <p className="text-xs text-muted-foreground leading-normal">
-                Shipment is pending dispatch. Delivery actions and POD submission will become available once the vehicle is dispatched.
-              </p>
-            </div>
-          ) : isClosed ? (
-            /* 2. Shipment is Closed or Cancelled (Locked Read-Only View) */
+          {isClosed ? (
+            /* 1. Shipment is Cancelled or Closed (Locked Read-Only View) */
             <div className="bg-emerald-50/40 border border-emerald-100 rounded-xl p-4 space-y-3.5">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <DetailField label="Receiver Name" value={dest.podReceiverName || "—"} />
@@ -186,7 +178,7 @@ function DestinationPODCard({
               )}
             </div>
           ) : (
-            /* 3. Shipment is In Transit or Delivered (Active Editable Form) */
+            /* 2. Active Editable Form (always accessible) */
             <div className="space-y-4">
               {isDestDelivered && (
                 <div className="flex items-center gap-2 bg-[#f0fdf4] border border-[#bbf7d0] rounded-lg px-3.5 py-2.5 text-xs text-[#15803d] font-semibold leading-normal">
@@ -300,7 +292,13 @@ function DestinationPODCard({
 
               {/* Action Buttons */}
               <div className="flex justify-end gap-2.5 pt-1.5">
-                {!isDestDelivered && (
+                {!isDestDelivered && isPending && (
+                  <span className="inline-flex items-center gap-1.5 text-[10px] px-3 py-1.5 rounded-full border bg-amber-50 text-amber-700 border-amber-200 font-bold">
+                    <Clock className="w-3 h-3" />
+                    Delivery available after dispatch
+                  </span>
+                )}
+                {!isDestDelivered && !isPending && (
                   <Button
                     className="gap-1.5 h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm font-bold"
                     onClick={() => onDeliverySuccess(dest._id)}

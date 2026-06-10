@@ -82,7 +82,7 @@ const shipmentSchema = new mongoose.Schema(
     totalQuantity: { type: Number, default: 0 },
     status: {
       type: String,
-      enum: ["Pending", "In Transit", "Delivered", "Returned", "Cancelled", "Closed"],
+      enum: ["Pending", "In Transit", "Delivered", "Cancelled", "Closed"],
       default: "Pending",
       index: true,
     },
@@ -105,7 +105,7 @@ shipmentSchema.pre("save", async function () {
 
     // Extract the 5-digit sequence from SHP-YYYY-NNNNN
     const seqStr = this.shipmentId.split("-")[2]; // e.g. "00143"
-    const seq    = parseInt(seqStr, 10);           // e.g. 143
+    const seq = parseInt(seqStr, 10);           // e.g. 143
 
     // Generate LR number for each destination and compute per-destination totals
     for (let i = 0; i < this.destinations.length; i++) {
