@@ -151,7 +151,7 @@ export function VehicleDriverSection({
                 <SelectValue placeholder={loadingD ? "Loading..." : "Select driver..."} />
               </SelectTrigger>
               <SelectContent>
-                {drivers.map((d) => (
+                {drivers.filter((d) => d && d._id).map((d) => (
                   <SelectItem
                     key={d._id}
                     value={d._id}

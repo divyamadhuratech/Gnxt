@@ -1,11 +1,18 @@
 import { RouterProvider } from "react-router";
 import { router } from "./routes";
 import { AuthProvider } from "./context/AuthContext";
+import { OfflineSyncProvider } from "./context/OfflineSyncContext";
+import { useKeepAlive } from "./utils/useKeepAlive";
 
 export default function App() {
+  console.log("[App] Root App component rendered");
+  useKeepAlive();
+
   return (
     <AuthProvider>
-      <RouterProvider router={router} />
+      <OfflineSyncProvider>
+        <RouterProvider router={router} />
+      </OfflineSyncProvider>
     </AuthProvider>
   );
 }

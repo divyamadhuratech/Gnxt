@@ -126,25 +126,25 @@ export const getInvoices = async (req, res) => {
       query.status = status;
     }
 
-    // ACTIVE FILTER: exclude Delivered and Cancelled invoices that are older than 2 minutes
+    // ACTIVE FILTER: exclude Delivered and Cancelled invoices that are older than 1 minute
     // (they have moved to history) unless all=true is passed
     if (all !== "true") {
-      const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
+      const oneMinuteAgo = new Date(Date.now() - 1 * 60 * 1000);
       query.$nor = [
         {
           status: "Delivered",
           $or: [
-            { deliveredAt: { $lt: twoMinutesAgo } },
-            { deliveredAt: null, updatedAt: { $lt: twoMinutesAgo } },
-            { deliveredAt: { $exists: false }, updatedAt: { $lt: twoMinutesAgo } }
+            { deliveredAt: { $lt: oneMinuteAgo } },
+            { deliveredAt: null, updatedAt: { $lt: oneMinuteAgo } },
+            { deliveredAt: { $exists: false }, updatedAt: { $lt: oneMinuteAgo } }
           ]
         },
         {
           status: "Cancelled",
           $or: [
-            { cancelledAt: { $lt: twoMinutesAgo } },
-            { cancelledAt: null, updatedAt: { $lt: twoMinutesAgo } },
-            { cancelledAt: { $exists: false }, updatedAt: { $lt: twoMinutesAgo } }
+            { cancelledAt: { $lt: oneMinuteAgo } },
+            { cancelledAt: null, updatedAt: { $lt: oneMinuteAgo } },
+            { cancelledAt: { $exists: false }, updatedAt: { $lt: oneMinuteAgo } }
           ]
         }
       ];
@@ -342,24 +342,24 @@ export const getInvoiceHistory = async (req, res) => {
     page  = Number(page);
     limit = Number(limit);
 
-    const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
+    const oneMinuteAgo = new Date(Date.now() - 1 * 60 * 1000);
 
     const query = {
       $or: [
         {
           status: "Delivered",
           $or: [
-            { deliveredAt: { $lt: twoMinutesAgo } },
-            { deliveredAt: null, updatedAt: { $lt: twoMinutesAgo } },
-            { deliveredAt: { $exists: false }, updatedAt: { $lt: twoMinutesAgo } }
+            { deliveredAt: { $lt: oneMinuteAgo } },
+            { deliveredAt: null, updatedAt: { $lt: oneMinuteAgo } },
+            { deliveredAt: { $exists: false }, updatedAt: { $lt: oneMinuteAgo } }
           ]
         },
         {
           status: "Cancelled",
           $or: [
-            { cancelledAt: { $lt: twoMinutesAgo } },
-            { cancelledAt: null, updatedAt: { $lt: twoMinutesAgo } },
-            { cancelledAt: { $exists: false }, updatedAt: { $lt: twoMinutesAgo } }
+            { cancelledAt: { $lt: oneMinuteAgo } },
+            { cancelledAt: null, updatedAt: { $lt: oneMinuteAgo } },
+            { cancelledAt: { $exists: false }, updatedAt: { $lt: oneMinuteAgo } }
           ]
         }
       ]

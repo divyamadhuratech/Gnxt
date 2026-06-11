@@ -1,4 +1,4 @@
-import { Plus, Download, CalendarDays } from "lucide-react";
+import { Plus, Download, CalendarDays, CheckSquare, Square } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "../ui/button";
 import {
@@ -22,6 +22,9 @@ export function ExpenseHeader({
   filterExpenseType,
   setFilterExpenseType,
   setCurrentPage,
+  selectMode,
+  onToggleSelectMode,
+  selectedCount,
 }) {
   return (
     <div className="flex items-start justify-between">
@@ -74,7 +77,7 @@ export function ExpenseHeader({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Types</SelectItem>
-            {expenseTypes.map((t) => (
+            {expenseTypes.filter(Boolean).map((t) => (
               <SelectItem key={t} value={t}>
                 {t}
               </SelectItem>
@@ -83,12 +86,31 @@ export function ExpenseHeader({
         </Select>
 
         <Button
+          variant={selectMode ? "default" : "outline"}
+          onClick={onToggleSelectMode}
+          className={`h-9 px-3 text-xs gap-1.5 border-border ${
+            selectMode 
+              ? "bg-[#1d4ed8] text-white hover:bg-[#1e40af]" 
+              : "bg-white text-slate-700 hover:bg-slate-50"
+          }`}
+        >
+          {selectMode ? (
+            <CheckSquare className="w-3.5 h-3.5" />
+          ) : (
+            <Square className="w-3.5 h-3.5 text-muted-foreground" />
+          )}
+          Select Mode
+        </Button>
+
+        <Button
           onClick={onExport}
           variant="outline"
           className="border-border gap-2 hover:bg-[#f8f9fb]"
         >
           <Download className="w-4 h-4 text-muted-foreground" />
-          Export to Excel
+          {selectMode && selectedCount > 0 
+            ? `Export Selected (${selectedCount})` 
+            : "Export to Excel"}
         </Button>
         <Button
           onClick={onAddExpense}

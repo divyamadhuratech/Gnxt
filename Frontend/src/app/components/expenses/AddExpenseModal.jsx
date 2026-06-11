@@ -417,7 +417,7 @@ export function AddExpenseModal({
                             <SelectValue placeholder="Type" />
                           </SelectTrigger>
                           <SelectContent>
-                            {expenseTypes.map((t) => (
+                            {expenseTypes.filter(Boolean).map((t) => (
                               <SelectItem key={t} value={t} className="text-xs">
                                 {t}
                               </SelectItem>

@@ -181,7 +181,7 @@ export function DestinationEntry({
                 <SelectValue placeholder={loadingPlants ? "Loading..." : "Select plant..."} />
               </SelectTrigger>
               <SelectContent>
-                {plantNumbers.map((plant) => {
+                {plantNumbers.filter(Boolean).map((plant) => {
                   const isUsed = usedPlantNumbers.includes(plant);
                   return (
                     <SelectItem

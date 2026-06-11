@@ -99,7 +99,8 @@ app.post("/api/upload", upload.single("file"), (req, res) => {
 
 
 /* ── Health check ──────────────────────────────── */
-app.get("/health", (req, res) => {
+app.get(["/health", "/api/health"], (req, res) => {
+  console.log(`[Health API] Health check requested from ${req.ip} at ${new Date().toLocaleTimeString()}`);
   res.status(200).json({
     message: "Server is running",
     socketClients: io.engine.clientsCount,

@@ -37,9 +37,8 @@ function SortableHead({ label, field, current, dir, onSort, className = "" }) {
     <TableHead className={`text-xs text-muted-foreground ${className}`}>
       <button
         onClick={() => onSort(field)}
-        className={`flex items-center gap-1 hover:text-foreground transition-colors ${
-          className.includes("text-right") ? "ml-auto" : ""
-        } ${isActive ? "text-foreground" : ""}`}
+        className={`flex items-center gap-1 hover:text-foreground transition-colors ${className.includes("text-right") ? "ml-auto" : ""
+          } ${isActive ? "text-foreground" : ""}`}
       >
         {label}
       </button>
@@ -77,6 +76,10 @@ export function ExpenseTable({
   onAddExpenseForTrip,
   onEditExpense,
   onDeleteExpense,
+  selectMode,
+  selectedTripIds,
+  onSelectTrip,
+  onToggleSelectAll,
 }) {
   const { user } = useAuth();
   const isAdmin = user?.role === "Super Admin";
@@ -95,6 +98,19 @@ export function ExpenseTable({
         <Table>
           <TableHeader>
             <TableRow className="bg-[#f8f9fb] hover:bg-[#f8f9fb] border-b border-border">
+              {selectMode && (
+                <TableHead className="w-[50px] text-center p-3">
+                  <input
+                    type="checkbox"
+                    checked={
+                      paginated.length > 0 &&
+                      paginated.every((t) => selectedTripIds.has(t.tripId))
+                    }
+                    onChange={(e) => onToggleSelectAll(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer"
+                  />
+                </TableHead>
+              )}
               <TableHead className="w-[50px]"></TableHead>
               <SortableHead
                 label="Trip / Shipment ID"
@@ -146,7 +162,7 @@ export function ExpenseTable({
           <TableBody>
             {paginated.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-16">
+                <TableCell colSpan={selectMode ? 9 : 8} className="text-center py-16">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <Wallet className="w-8 h-8 opacity-30" />
                     <p className="text-sm font-medium">No trip expenses recorded</p>
@@ -164,11 +180,20 @@ export function ExpenseTable({
                     {/* Parent Group Row */}
                     <TableRow
                       key={tripGroup.tripId}
-                      className={`transition-colors hover:bg-slate-50/50 cursor-pointer ${
-                        isExpanded ? "bg-[#f8faff] border-b-0" : idx % 2 === 1 ? "bg-[#fbfbfc]" : ""
-                      }`}
+                      className={`transition-colors hover:bg-slate-50/50 cursor-pointer ${isExpanded ? "bg-[#f8faff] border-b-0" : idx % 2 === 1 ? "bg-[#fbfbfc]" : ""
+                        }`}
                       onClick={() => toggleTrip(tripGroup.tripId)}
                     >
+                      {selectMode && (
+                        <TableCell className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={selectedTripIds.has(tripGroup.tripId)}
+                            onChange={() => onSelectTrip(tripGroup.tripId)}
+                            className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer"
+                          />
+                        </TableCell>
+                      )}
                       <TableCell className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
                         <Button
                           variant="ghost"
@@ -229,7 +254,7 @@ export function ExpenseTable({
                     {/* Expandable Breakdown Child Row */}
                     {isExpanded && (
                       <TableRow className="bg-[#f8faff] hover:bg-[#f8faff]">
-                        <TableCell colSpan={8} className="p-4 pt-1 pb-4">
+                        <TableCell colSpan={selectMode ? 9 : 8} className="p-4 pt-1 pb-4">
                           <div className="border border-[#1d4ed8]/10 rounded-xl bg-white shadow-sm overflow-hidden ml-11 mr-4">
                             <Table className="min-w-full">
                               <TableHeader className="bg-slate-50/80">
@@ -358,9 +383,8 @@ export function ExpenseTable({
               key={page}
               variant={page === currentPage ? "default" : "outline"}
               size="icon"
-              className={`w-8 h-8 text-xs bg-white ${
-                page === currentPage ? "bg-[#1d4ed8] hover:bg-[#1e40af] text-white" : ""
-              }`}
+              className={`w-8 h-8 text-xs bg-white ${page === currentPage ? "bg-[#1d4ed8] hover:bg-[#1e40af] text-white" : ""
+                }`}
               onClick={() => setCurrentPage(page)}
             >
               {page}

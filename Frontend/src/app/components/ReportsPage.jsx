@@ -259,7 +259,7 @@ export function ReportsPage() {
           </div>
 
           {/* Date Range */}
-          <Select value={dateRange} onValueChange={setDateRange}>
+          <Select value={dateRange || "7d"} onValueChange={(val) => setDateRange(val || "7d")}>
             <SelectTrigger className="w-[140px] h-9 text-xs bg-white border-slate-200 rounded-md">
               <CalendarDays className="w-3.5 h-3.5 text-slate-400 mr-1.5" />
               <SelectValue />
@@ -274,42 +274,42 @@ export function ReportsPage() {
           </Select>
 
           {/* Vehicle */}
-          <Select value={vehicleFilter} onValueChange={setVehicleFilter}>
+          <Select value={vehicleFilter || "all"} onValueChange={(val) => setVehicleFilter(val || "all")}>
             <SelectTrigger className="w-[150px] h-9 text-xs bg-white border-slate-200 rounded-md">
               <Car className="w-3.5 h-3.5 text-slate-400 mr-1.5" />
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Vehicles</SelectItem>
-              {filterOptions.vehicles.map((v) => (
+              {filterOptions.vehicles.filter(Boolean).map((v) => (
                 <SelectItem key={v} value={v}>{v}</SelectItem>
               ))}
             </SelectContent>
           </Select>
 
           {/* Driver */}
-          <Select value={driverFilter} onValueChange={setDriverFilter}>
+          <Select value={driverFilter || "all"} onValueChange={(val) => setDriverFilter(val || "all")}>
             <SelectTrigger className="w-[150px] h-9 text-xs bg-white border-slate-200 rounded-md">
               <Users className="w-3.5 h-3.5 text-slate-400 mr-1.5" />
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Drivers</SelectItem>
-              {filterOptions.drivers.map((d) => (
+              {filterOptions.drivers.filter(Boolean).map((d) => (
                 <SelectItem key={d} value={d}>{d}</SelectItem>
               ))}
             </SelectContent>
           </Select>
 
           {/* Dealer */}
-          <Select value={dealerFilter} onValueChange={setDealerFilter}>
+          <Select value={dealerFilter || "all"} onValueChange={(val) => setDealerFilter(val || "all")}>
             <SelectTrigger className="w-[160px] h-9 text-xs bg-white border-slate-200 rounded-md">
               <Package className="w-3.5 h-3.5 text-slate-400 mr-1.5" />
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Dealers</SelectItem>
-              {filterOptions.dealers.map((dl) => (
+              {filterOptions.dealers.filter(Boolean).map((dl) => (
                 <SelectItem key={dl} value={dl}>{dl}</SelectItem>
               ))}
             </SelectContent>

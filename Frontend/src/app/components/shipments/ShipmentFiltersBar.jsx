@@ -32,7 +32,7 @@ export function ShipmentFiltersBar({
         />
       </div>
 
-      <Select value={statusFilter} onValueChange={onStatusFilterChange}>
+      <Select value={statusFilter ?? "all"} onValueChange={onStatusFilterChange}>
         <SelectTrigger className="w-[180px] h-9 bg-white border-border">
           <div className="flex items-center gap-2">
             <Filter className="w-3.5 h-3.5 text-muted-foreground" />
@@ -47,7 +47,7 @@ export function ShipmentFiltersBar({
         </SelectContent>
       </Select>
 
-      <Select value={dateFilter} onValueChange={onDateFilterChange}>
+      <Select value={dateFilter ?? "all"} onValueChange={onDateFilterChange}>
         <SelectTrigger className="w-[160px] h-9 bg-white border-border">
           <div className="flex items-center gap-2">
             <CalendarDays className="w-3.5 h-3.5 text-muted-foreground" />
@@ -62,7 +62,7 @@ export function ShipmentFiltersBar({
         </SelectContent>
       </Select>
 
-      <Select value={podFilter} onValueChange={onPodFilterChange}>
+      <Select value={podFilter ?? "all"} onValueChange={onPodFilterChange}>
         <SelectTrigger className="w-[160px] h-9 bg-white border-border">
           <div className="flex items-center gap-2">
             <Filter className="w-3.5 h-3.5 text-muted-foreground" />

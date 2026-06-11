@@ -33,7 +33,7 @@ export default function VehicleFiltersBar({
         </div>
 
 
-        <Select value={statusFilter} onValueChange={onStatusFilterChange}>
+          <Select value={statusFilter || "all"} onValueChange={onStatusFilterChange}>
           <SelectTrigger className="w-[160px] h-9 bg-white text-sm">
             <Filter className="w-3.5 h-3.5 text-muted-foreground mr-1.5" />
             <SelectValue placeholder="Status" />
@@ -49,7 +49,7 @@ export default function VehicleFiltersBar({
           </SelectContent>
         </Select>
 
-        <Select value={availFilter} onValueChange={onAvailFilterChange}>
+      <Select value={availFilter || "all"} onValueChange={onAvailFilterChange}>
           <SelectTrigger className="w-[180px] h-9 bg-white text-sm">
             <Filter className="w-3.5 h-3.5 text-muted-foreground mr-1.5" />
             <SelectValue placeholder="Availability" />

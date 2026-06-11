@@ -15,7 +15,7 @@ export const createShipment = async (req, res) => {
       return res.status(400).json({ success: false, message: "At least one destination is required" });
     }
     if (!vehicleId) return res.status(400).json({ success: false, message: "Vehicle is required" });
-    if (!driverId)  return res.status(400).json({ success: false, message: "Driver is required" });
+    if (!driverId) return res.status(400).json({ success: false, message: "Driver is required" });
 
     // Validate vehicle exists
     const vehicle = await Vehicle.findById(vehicleId).lean();
@@ -27,7 +27,7 @@ export const createShipment = async (req, res) => {
 
     // Build destination docs — resolve customerName + location from invoices
     const destinationDocs = await Promise.all(destinations.map(async (d) => {
-      let customerName     = "";
+      let customerName = "";
       let deliveryLocation = d.deliveryLocation || "";
 
       // Try selected invoiceIds first
@@ -35,7 +35,7 @@ export const createShipment = async (req, res) => {
         const inv = await Invoice.findById(d.invoiceIds[0])
           .select("customerName location").lean();
         if (inv) {
-          customerName     = inv.customerName || "";
+          customerName = inv.customerName || "";
           deliveryLocation = deliveryLocation || inv.location || "";
         }
       }
@@ -46,8 +46,8 @@ export const createShipment = async (req, res) => {
         const inv = await Invoice.findOne({ plantReferenceNumber: { $in: plantNumbers } })
           .select("customerName location").lean();
         if (inv) {
-          customerName     = customerName     || inv.customerName || "";
-          deliveryLocation = deliveryLocation || inv.location     || "";
+          customerName = customerName || inv.customerName || "";
+          deliveryLocation = deliveryLocation || inv.location || "";
         }
       }
 
@@ -93,9 +93,9 @@ export const createShipment = async (req, res) => {
       }).lean();
 
       if (alreadyAssigned.length > 0) {
-        return res.status(400).json({ 
-          success: false, 
-          message: "One or more selected invoices have already been assigned to another shipment." 
+        return res.status(400).json({
+          success: false,
+          message: "One or more selected invoices have already been assigned to another shipment."
         });
       }
 
@@ -157,16 +157,16 @@ export const getShipments = async (req, res) => {
 
         // Try populated invoices first
         const popInv = (dest.invoiceIds ?? []).find((inv) => typeof inv === "object");
-        let customerName     = dest.customerName     || popInv?.customerName || "";
-        let deliveryLocation = dest.deliveryLocation || popInv?.location     || "";
+        let customerName = dest.customerName || popInv?.customerName || "";
+        let deliveryLocation = dest.deliveryLocation || popInv?.location || "";
 
         // Fallback: look up by plantReferenceNumber
         if ((!customerName || !deliveryLocation) && dest.plantReferenceNumber) {
           const plantNumbers = dest.plantReferenceNumber.split(",").map(p => p.trim()).filter(Boolean);
           const inv = await Invoice.findOne({ plantReferenceNumber: { $in: plantNumbers } })
             .select("customerName location").lean();
-          customerName     = customerName     || inv?.customerName || "";
-          deliveryLocation = deliveryLocation || inv?.location     || "";
+          customerName = customerName || inv?.customerName || "";
+          deliveryLocation = deliveryLocation || inv?.location || "";
         }
 
         return { ...dest, customerName, deliveryLocation };
@@ -200,21 +200,21 @@ export const getShipmentById = async (req, res) => {
 
     // Backfill customerName + deliveryLocation for destinations if missing
     const enrichedDestinations = await Promise.all((shipment.destinations ?? []).map(async (dest) => {
-      let customerName     = dest.customerName || "";
+      let customerName = dest.customerName || "";
       let deliveryLocation = dest.deliveryLocation || "";
 
       // Try populated invoices first
       const popInv = (dest.invoiceIds ?? []).find((inv) => typeof inv === "object");
-      customerName     = customerName     || popInv?.customerName || "";
-      deliveryLocation = deliveryLocation || popInv?.location     || "";
+      customerName = customerName || popInv?.customerName || "";
+      deliveryLocation = deliveryLocation || popInv?.location || "";
 
       // Fallback lookup
       if ((!customerName || !deliveryLocation) && dest.plantReferenceNumber) {
         const plantNumbers = dest.plantReferenceNumber.split(",").map(p => p.trim()).filter(Boolean);
         const inv = await Invoice.findOne({ plantReferenceNumber: { $in: plantNumbers } })
           .select("customerName location").lean();
-        customerName     = customerName     || inv?.customerName || "";
-        deliveryLocation = deliveryLocation || inv?.location     || "";
+        customerName = customerName || inv?.customerName || "";
+        deliveryLocation = deliveryLocation || inv?.location || "";
       }
 
       return { ...dest, customerName, deliveryLocation };
@@ -268,9 +268,9 @@ export const updateShipmentStatus = async (req, res) => {
         } else if (status === "In Transit") {
           targetInvoiceStatus = "In Transit";
         }
-        
+
         const plantNumbers = dest.plantReferenceNumber.split(",").map(p => p.trim()).filter(Boolean);
-        
+
         const updateData = { status: targetInvoiceStatus };
         if (targetInvoiceStatus === "Delivered") {
           updateData.deliveredAt = deliveredAt;
@@ -404,7 +404,7 @@ export const updateShipment = async (req, res) => {
     if (!existing) return res.status(404).json({ success: false, message: "Shipment not found" });
 
     const vehicle = vehicleId ? await Vehicle.findById(vehicleId).lean() : null;
-    const driver  = driverId  ? await Driver.findById(driverId).lean()   : null;
+    const driver = driverId ? await Driver.findById(driverId).lean() : null;
 
     const update = { notes };
 
@@ -415,8 +415,8 @@ export const updateShipment = async (req, res) => {
         await Vehicle.findByIdAndUpdate(existing.vehicleId, { availability: "Available", status: "Idle" });
         await Vehicle.findByIdAndUpdate(vehicle._id, { availability: "On Trip", status: "In Transit" });
       }
-      update.vehicleId         = vehicle._id;
-      update.vehicleNumber     = vehicle.vehicleNo;
+      update.vehicleId = vehicle._id;
+      update.vehicleNumber = vehicle.vehicleNo;
       update.vehicleCapacityKg = vehicle.capacityKg;
     }
 
@@ -427,17 +427,17 @@ export const updateShipment = async (req, res) => {
         await Driver.findByIdAndUpdate(existing.driverId, { tripStatus: "Idle", assignedVehicle: null });
         await Driver.findByIdAndUpdate(driver._id, { tripStatus: "Assigned", assignedVehicle: vehicle?.vehicleNo || existing.vehicleNumber });
       }
-      update.driverId    = driver._id;
-      update.driverName  = driver.name;
+      update.driverId = driver._id;
+      update.driverName = driver.name;
       update.driverPhone = driver.phone;
     }
 
     // ── Status logic on update ──────────────────────
     // If vehicle or driver changed and shipment is Pending → move to In Transit
     const vehicleChanged = vehicle && existing.vehicleId?.toString() !== vehicle._id.toString();
-    const driverChanged  = driver  && existing.driverId?.toString()  !== driver._id.toString();
+    const driverChanged = driver && existing.driverId?.toString() !== driver._id.toString();
     if ((vehicleChanged || driverChanged) && existing.status === "Pending") {
-      update.status       = "In Transit";
+      update.status = "In Transit";
       update.dispatchDate = new Date();
     }
 
@@ -445,7 +445,7 @@ export const updateShipment = async (req, res) => {
     if (destinations?.length) {
       // Re-resolve customerName + location from invoices (same as create)
       const resolvedDests = await Promise.all(destinations.map(async (d, i) => {
-        let customerName     = d.customerName     || "";
+        let customerName = d.customerName || "";
         let deliveryLocation = d.deliveryLocation || "";
 
         // Try selected invoiceIds first
@@ -453,8 +453,8 @@ export const updateShipment = async (req, res) => {
           const inv = await Invoice.findById(d.invoiceIds[0])
             .select("customerName location").lean();
           if (inv) {
-            customerName     = customerName     || inv.customerName || "";
-            deliveryLocation = deliveryLocation || inv.location     || "";
+            customerName = customerName || inv.customerName || "";
+            deliveryLocation = deliveryLocation || inv.location || "";
           }
         }
 
@@ -464,8 +464,8 @@ export const updateShipment = async (req, res) => {
           const inv = await Invoice.findOne({ plantReferenceNumber: { $in: plantNumbers } })
             .select("customerName location").lean();
           if (inv) {
-            customerName     = customerName     || inv.customerName || "";
-            deliveryLocation = deliveryLocation || inv.location     || "";
+            customerName = customerName || inv.customerName || "";
+            deliveryLocation = deliveryLocation || inv.location || "";
           }
         }
 
@@ -485,7 +485,7 @@ export const updateShipment = async (req, res) => {
         };
       }));
 
-      update.destinations  = resolvedDests;
+      update.destinations = resolvedDests;
       update.totalWeightKg = resolvedDests.reduce((s, d) => s + (d.weightKg || 0), 0);
       update.totalQuantity = resolvedDests.reduce((s, d) => s + (d.totalQuantity || 0), 0);
 
@@ -601,7 +601,7 @@ export const deleteShipment = async (req, res) => {
           "destinations.invoiceIds": invId,
           status: { $in: ["Pending", "In Transit", "Delivered", "Closed"] }
         }).lean();
-        
+
         if (!otherShipment) {
           invoicesToRevert.push(invId);
         }
@@ -644,9 +644,9 @@ export const getInvoicesByPlant = async (req, res) => {
 ───────────────────────────────────────────────── */
 export const getNextShipmentId = async (req, res) => {
   try {
-    const year   = new Date().getFullYear();
+    const year = new Date().getFullYear();
     const prefix = `SHP-${year}-`;
-    const last   = await Shipment.findOne(
+    const last = await Shipment.findOne(
       { shipmentId: { $regex: `^${prefix}` } },
       { shipmentId: 1 },
       { sort: { shipmentId: -1 } }

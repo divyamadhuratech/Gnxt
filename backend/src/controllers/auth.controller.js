@@ -54,9 +54,67 @@ export const login = async (req, res) => {
     const isMongoConnected = mongoose.connection.readyState === 1;
     const lowerUsername = username.toLowerCase();
 
-    // Check for static admin login
+    // 1. Try DB lookup first if MongoDB is connected
+    let user = null;
+    if (isMongoConnected) {
+      user = await User.findOne({
+        $or: [
+          { username: lowerUsername },
+          { email: lowerUsername },
+        ],
+      });
+    }
+
+    // 2. If user is found in the database, authenticate them using DB credentials
+    if (user) {
+      if (user.status === "Inactive") {
+        return res.status(403).json({ success: false, message: "Account is inactive. Contact admin." });
+      }
+
+      const isMatch = await user.comparePassword(password);
+      if (!isMatch) {
+        await ActivityLog.create({
+          userId: user._id,
+          userName: user.username,
+          action: "Failed Login",
+          target: "System",
+          ipAddress: ip,
+          status: "Failed",
+        });
+        return res.status(401).json({ success: false, message: "Invalid credentials" });
+      }
+
+      // Update lastLogin
+      user.lastLogin = new Date();
+      await user.save();
+
+      // Log success
+      await ActivityLog.create({
+        userId: user._id,
+        userName: user.username,
+        action: "Login",
+        target: "System",
+        ipAddress: ip,
+        status: "Success",
+      });
+
+      const token = jwt.sign(
+        { id: user._id, role: user.role, username: user.username },
+        JWT_SECRET,
+        { expiresIn: JWT_EXPIRES }
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: "Login successful",
+        token,
+        user: user.toJSON(),
+      });
+    }
+
+    // 3. Fallback: Check for static admin login (either if DB doesn't have the user or DB is offline)
     if (lowerUsername === "admin" || lowerUsername === "admin@gnxt.com") {
-      if (password === "admin" || password === "admin123" || password === "Admin@2026") {
+      if (password === "admin" || password === "admin123" || password === "Admin@2026" || password === "gnxt@admin@123") {
         if (isMongoConnected) {
           try {
             await ActivityLog.create({
@@ -99,80 +157,20 @@ export const login = async (req, res) => {
             console.error("Failed to write activity log:", logErr.message);
           }
         }
-        return res.status(401).json({ success: false, message: "Invalid credentials for static admin" });
+        return res.status(401).json({ success: false, message: "Invalid credentials" });
       }
     }
 
-    // If MongoDB is not connected and the user tries to login with a different account
+    // 4. If MongoDB is not connected and username is not static admin
     if (!isMongoConnected) {
       return res.status(503).json({
         success: false,
-        message: "Database is offline. Please log in using the static 'admin' account (Password: 'Admin@2026')."
+        message: "Database is offline. Please log in using the static 'admin' account."
       });
     }
 
-    // Find by username or email
-    const user = await User.findOne({
-      $or: [
-        { username: lowerUsername },
-        { email: lowerUsername },
-      ],
-    });
-
-    if (!user) {
-      await ActivityLog.create({
-        userName: username,
-        action: "Failed Login",
-        target: "System",
-        ipAddress: ip,
-        status: "Failed",
-      });
-      return res.status(401).json({ success: false, message: "Invalid credentials" });
-    }
-
-    if (user.status === "Inactive") {
-      return res.status(403).json({ success: false, message: "Account is inactive. Contact admin." });
-    }
-
-    const isMatch = await user.comparePassword(password);
-    if (!isMatch) {
-      await ActivityLog.create({
-        userId: user._id,
-        userName: user.username,
-        action: "Failed Login",
-        target: "System",
-        ipAddress: ip,
-        status: "Failed",
-      });
-      return res.status(401).json({ success: false, message: "Invalid credentials" });
-    }
-
-    // Update lastLogin
-    user.lastLogin = new Date();
-    await user.save();
-
-    // Log success
-    await ActivityLog.create({
-      userId: user._id,
-      userName: user.username,
-      action: "Login",
-      target: "System",
-      ipAddress: ip,
-      status: "Success",
-    });
-
-    const token = jwt.sign(
-      { id: user._id, role: user.role, username: user.username },
-      JWT_SECRET,
-      { expiresIn: JWT_EXPIRES }
-    );
-
-    res.status(200).json({
-      success: true,
-      message: "Login successful",
-      token,
-      user: user.toJSON(),
-    });
+    // 5. User not found and not static admin credentials
+    return res.status(401).json({ success: false, message: "Invalid credentials" });
   } catch (err) {
     console.error("Login error:", err);
     res.status(500).json({ success: false, message: "Login failed", error: err.message });

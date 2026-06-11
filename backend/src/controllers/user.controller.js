@@ -339,7 +339,7 @@ export const updateRolePermissions = async (req, res) => {
     await ActivityLog.create({
       userId: req.user?.id,
       userName: req.user?.username || "System",
-      action: "Role Permissions Updated",
+      action: "Permission Updated",
       target: role,
       ipAddress: getIp(req),
       status: "Success",

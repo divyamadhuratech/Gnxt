@@ -23,15 +23,12 @@ const API_BASE_URL =
 const itemsPerPage = 15;
 
 export function InvoicesPage() {
-  const { user, hasPermission, hasGranularPermission } = useAuth();
+  const { user, token, hasPermission, hasGranularPermission } = useAuth();
   const canCreate = hasPermission("Invoices", "create");
-  // canEdit = can cancel invoices; check granular perm first, then legacy delete (cancel maps to delete),
-  // then legacy edit as final fallback
   const canEdit =
     hasGranularPermission("cancel_invoice") ||
     hasPermission("Invoices", "delete") ||
     hasPermission("Invoices", "edit");
-  // Delete is Super Admin only (no granular delete key exists for invoices)
   const canDelete = user?.role === "Super Admin";
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -61,6 +58,8 @@ export function InvoicesPage() {
   });
   const [submitting, setSubmitting] = useState(false);
 
+  const getToken = () => token || localStorage.getItem("gnxt_token");
+
   const fetchInvoices = async (
     search = "",
     status = "All",
@@ -81,7 +80,12 @@ export function InvoicesPage() {
       });
 
       const res = await fetch(
-        `${API_BASE_URL}/invoices?${params}`
+        `${API_BASE_URL}/invoices?${params}`,
+        {
+          headers: {
+            Authorization: `Bearer ${getToken()}`,
+          },
+        }
       );
 
       const result = await res.json();
@@ -101,21 +105,24 @@ export function InvoicesPage() {
   };
 
   useEffect(() => {
+    if (!token) return;
     fetchInvoices(searchQuery, statusFilter, currentPage);
-  }, [currentPage]);
+  }, [currentPage, token]);
 
   useEffect(() => {
+    if (!token) return;
     setCurrentPage(1);
     fetchInvoices(searchQuery, statusFilter, 1);
-  }, [searchQuery, statusFilter]);
+  }, [searchQuery, statusFilter, token]);
 
-  // Auto-refresh the invoices list every 30 seconds to move delivered/cancelled plants to history seamlessly
+  // Auto-refresh the invoices list every 30 seconds
   useEffect(() => {
+    if (!token) return;
     const interval = setInterval(() => {
       fetchInvoices(searchQuery, statusFilter, currentPage, true);
     }, 30000);
     return () => clearInterval(interval);
-  }, [searchQuery, statusFilter, currentPage]);
+  }, [searchQuery, statusFilter, currentPage, token]);
 
   const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -146,6 +153,9 @@ export function InvoicesPage() {
         `${API_BASE_URL}/invoices/upload`,
         {
           method: "POST",
+          headers: {
+            Authorization: `Bearer ${getToken()}`,
+          },
           body: formData,
         }
       );
@@ -216,6 +226,7 @@ export function InvoicesPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${getToken()}`,
         },
         body: JSON.stringify(newInvoiceData),
       });
@@ -396,7 +407,7 @@ export function InvoicesPage() {
         canDelete={canDelete}
       />
 
-      <InvoiceHistorySheet 
+      <InvoiceHistorySheet
         open={historyOpen}
         onOpenChange={setHistoryOpen}
       />

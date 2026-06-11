@@ -39,19 +39,31 @@ export function ExpensesPage() {
   const [editExpense, setEditExpense] = useState(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
 
+  // Selection
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedTripIds, setSelectedTripIds] = useState(new Set());
+
   const fetchExpenses = async () => {
     try {
       setLoading(true);
       const [expRes, shipRes] = await Promise.all([
-        fetch("http://localhost:5000/api/expenses"),
-        fetch("http://localhost:5000/api/shipments?limit=1000")
+        fetch("http://localhost:5000/api/expenses").catch(err => {
+          console.error("Failed fetching expenses:", err);
+          return { ok: false };
+        }),
+        fetch("http://localhost:5000/api/shipments?limit=1000").catch(err => {
+          console.error("Failed fetching shipments:", err);
+          return { ok: false };
+        })
       ]);
       if (!expRes.ok) throw new Error("Failed to fetch expenses");
-      if (!shipRes.ok) throw new Error("Failed to fetch shipments");
-      
+
       const expData = await expRes.json();
-      const shipData = await shipRes.json();
-      
+      let shipData = { data: [] };
+      if (shipRes.ok) {
+        shipData = await shipRes.json();
+      }
+
       setExpenses(expData);
       setShipments(shipData.data || []);
     } catch (err) {
@@ -157,9 +169,9 @@ export function ExpensesPage() {
         const q = searchQuery.toLowerCase();
         // Only apply deep search filter if the group-level fields don't match
         const groupMatches = g.tripId.toLowerCase().includes(q) ||
-                             g.driverName.toLowerCase().includes(q) ||
-                             g.vehicleId.toLowerCase().includes(q) ||
-                             g.customerName.toLowerCase().includes(q);
+          g.driverName.toLowerCase().includes(q) ||
+          g.vehicleId.toLowerCase().includes(q) ||
+          g.customerName.toLowerCase().includes(q);
         if (!groupMatches) {
           filteredBreakdown = filteredBreakdown.filter(e => (e.lrNumber || "").toLowerCase().includes(q));
         }
@@ -190,8 +202,8 @@ export function ExpensesPage() {
         filteredBreakdown = filteredBreakdown.filter(e => {
           const ed = new Date(e.date);
           return ed.getFullYear() === target.getFullYear() &&
-                 ed.getMonth() === target.getMonth() &&
-                 ed.getDate() === target.getDate();
+            ed.getMonth() === target.getMonth() &&
+            ed.getDate() === target.getDate();
         });
       }
 
@@ -211,7 +223,7 @@ export function ExpensesPage() {
         const parts = g.customerName.split(",").map(p => p.trim());
         if (!parts.includes(filterDealer)) return false;
       }
-      
+
       // Keep group only if it has matching breakdown items or matches all group filters
       return g.breakdown.length > 0;
     });
@@ -252,7 +264,7 @@ export function ExpensesPage() {
 
   // Summary calculations
   const totalExpenses = expenses.reduce((s, e) => s + (e.totalAmount !== undefined ? e.totalAmount : (e.amount || 0)), 0);
-  
+
   const getAmountByType = (type) => {
     return expenses.reduce((sum, e) => {
       if (e.items && e.items.length > 0) {
@@ -288,6 +300,41 @@ export function ExpensesPage() {
     setCurrentPage(1);
   };
 
+  const handleToggleSelectMode = () => {
+    setSelectMode((prev) => {
+      if (prev) {
+        setSelectedTripIds(new Set());
+      }
+      return !prev;
+    });
+  };
+
+  const handleSelectTrip = (tripId) => {
+    setSelectedTripIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(tripId)) {
+        next.delete(tripId);
+      } else {
+        next.add(tripId);
+      }
+      return next;
+    });
+  };
+
+  const handleToggleSelectAll = (checked) => {
+    setSelectedTripIds((prev) => {
+      const next = new Set(prev);
+      paginated.forEach((t) => {
+        if (checked) {
+          next.add(t.tripId);
+        } else {
+          next.delete(t.tripId);
+        }
+      });
+      return next;
+    });
+  };
+
   const addExpense = async (newExpense) => {
     try {
       const response = await fetch("http://localhost:5000/api/expenses", {
@@ -321,7 +368,7 @@ export function ExpensesPage() {
         body: JSON.stringify(payload),
       });
       if (!response.ok) throw new Error("Failed to update expense");
-      
+
       const { data } = await response.json();
       setExpenses((prev) => prev.map((e) => (e._id === id ? { ...e, ...data } : e)));
     } catch (err) {
@@ -335,7 +382,7 @@ export function ExpensesPage() {
         method: "DELETE",
       });
       if (!response.ok) throw new Error("Failed to delete expense");
-      
+
       setExpenses((prev) => prev.filter((e) => e._id !== id));
     } catch (err) {
       console.error(err);
@@ -345,8 +392,13 @@ export function ExpensesPage() {
   const handleExport = () => {
     // Flatten the grouped data to show individual expenses
     const flattenedRows = [];
-    
-    processedData.forEach((group) => {
+
+    // Filter by selected trips if selectMode is active and something is selected
+    const dataToExport = selectMode && selectedTripIds.size > 0
+      ? processedData.filter(group => selectedTripIds.has(group.tripId))
+      : processedData;
+
+    dataToExport.forEach((group) => {
       if (group.breakdown && group.breakdown.length > 0) {
         group.breakdown.forEach((expense) => {
           // If the expense has multiple items, flatten those too
@@ -354,7 +406,7 @@ export function ExpensesPage() {
             expense.items.forEach(item => {
               // Apply filterExpenseType at the item level if needed
               if (filterExpenseType !== "all" && item.expenseType !== filterExpenseType) return;
-              
+
               flattenedRows.push({
                 "Trip / Shipment ID": group.tripId || "No Trip ID",
                 "LR Number": expense.lrNumber || "N/A",
@@ -390,28 +442,28 @@ export function ExpensesPage() {
       }
     });
 
-      const worksheet = XLSX.utils.json_to_sheet(flattenedRows);
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Expenses");
-      
-      // Auto-size columns slightly
-      const wscols = [
-        { wch: 20 }, // Trip ID
-        { wch: 15 }, // LR Number
-        { wch: 20 }, // Driver
-        { wch: 15 }, // Vehicle
-        { wch: 15 }, // Type
-        { wch: 15 }, // Amount
-        { wch: 30 }, // Description
-        { wch: 15 }, // Payment Mode
-        { wch: 15 }, // Status
-        { wch: 15 }, // Date
-        { wch: 25 }, // Customer
-        { wch: 20 }  // Total Kg
-      ];
-      worksheet['!cols'] = wscols;
+    const worksheet = XLSX.utils.json_to_sheet(flattenedRows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Expenses");
 
-      XLSX.writeFile(workbook, `GNXT_Expenses_Export_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    // Auto-size columns slightly
+    const wscols = [
+      { wch: 20 }, // Trip ID
+      { wch: 15 }, // LR Number
+      { wch: 20 }, // Driver
+      { wch: 15 }, // Vehicle
+      { wch: 15 }, // Type
+      { wch: 15 }, // Amount
+      { wch: 30 }, // Description
+      { wch: 15 }, // Payment Mode
+      { wch: 15 }, // Status
+      { wch: 15 }, // Date
+      { wch: 25 }, // Customer
+      { wch: 20 }  // Total Kg
+    ];
+    worksheet['!cols'] = wscols;
+
+    XLSX.writeFile(workbook, `GNXT_Expenses_Export_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
   const hasActiveFilters =
@@ -438,6 +490,9 @@ export function ExpensesPage() {
         filterExpenseType={filterExpenseType}
         setFilterExpenseType={setFilterExpenseType}
         setCurrentPage={setCurrentPage}
+        selectMode={selectMode}
+        onToggleSelectMode={handleToggleSelectMode}
+        selectedCount={selectedTripIds.size}
       />
 
       <ExpenseFiltersBar
@@ -493,6 +548,10 @@ export function ExpensesPage() {
           setEditModalOpen(true);
         }}
         onDeleteExpense={deleteExpense}
+        selectMode={selectMode}
+        selectedTripIds={selectedTripIds}
+        onSelectTrip={handleSelectTrip}
+        onToggleSelectAll={handleToggleSelectAll}
       />
 
       <AddExpenseModal

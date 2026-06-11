@@ -12,15 +12,15 @@ export const getExpenses = async (req, res) => {
     const { lrNumber, vehicleId, driverId, dateFrom, dateTo, tripId } = req.query;
     const query = {};
 
-    if (lrNumber)    query.lrNumber    = { $regex: lrNumber, $options: "i" };
-    if (tripId)      query.tripId      = { $regex: tripId, $options: "i" };
-    if (vehicleId)   query.vehicleId   = vehicleId;
-    if (driverId)    query.driverId    = driverId;
-    
+    if (lrNumber) query.lrNumber = { $regex: lrNumber, $options: "i" };
+    if (tripId) query.tripId = { $regex: tripId, $options: "i" };
+    if (vehicleId) query.vehicleId = vehicleId;
+    if (driverId) query.driverId = driverId;
+
     if (dateFrom || dateTo) {
       query.date = {};
       if (dateFrom) query.date.$gte = new Date(dateFrom);
-      if (dateTo)   query.date.$lte = new Date(dateTo);
+      if (dateTo) query.date.$lte = new Date(dateTo);
     }
 
     const expenses = await Expense.find(query)
@@ -134,7 +134,7 @@ export const createExpense = async (req, res) => {
 
       for (const entry of entries) {
         const resolved = await resolveShipmentDetails(entry.lrNumber, tripId);
-        
+
         let finalVehicleId = resolved.finalVehicleId;
         let vehicleNo = resolved.vehicleNo;
         let finalDriverId = resolved.finalDriverId;
@@ -156,20 +156,20 @@ export const createExpense = async (req, res) => {
         const totalAmount = entryItems.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
 
         const exp = await Expense.create({
-          tripId:      resolved.resolvedTripId || tripId || "",
-          lrNumber:    entry.lrNumber || "",
-          vehicleId:   finalVehicleId,
+          tripId: resolved.resolvedTripId || tripId || "",
+          lrNumber: entry.lrNumber || "",
+          vehicleId: finalVehicleId,
           vehicleNo,
-          driverId:    finalDriverId,
+          driverId: finalDriverId,
           driverName,
-          shipmentId:  resolved.shipmentRef || undefined,
-          items:       entryItems,
+          shipmentId: resolved.shipmentRef || undefined,
+          items: entryItems,
           totalAmount,
-          date:        entry.date ? new Date(entry.date) : new Date(),
-          notes:       entry.notes || "",
-          receiptUrl:  entry.receiptUrl || "",
+          date: entry.date ? new Date(entry.date) : new Date(),
+          notes: entry.notes || "",
+          receiptUrl: entry.receiptUrl || "",
           paymentMode: entry.paymentMode || paymentMode || "Cash",
-          status:      "Pending",
+          status: "Pending",
         });
 
         createdExpenses.push({
@@ -208,20 +208,20 @@ export const createExpense = async (req, res) => {
     const totalAmount = items.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
 
     const expense = await Expense.create({
-      tripId:      resolved.resolvedTripId || tripId || "",
-      lrNumber:    lrNumber || "",
-      vehicleId:   finalVehicleId,
+      tripId: resolved.resolvedTripId || tripId || "",
+      lrNumber: lrNumber || "",
+      vehicleId: finalVehicleId,
       vehicleNo,
-      driverId:    finalDriverId,
+      driverId: finalDriverId,
       driverName,
-      shipmentId:  resolved.shipmentRef || undefined,
+      shipmentId: resolved.shipmentRef || undefined,
       items,
       totalAmount,
-      date:        date ? new Date(date) : new Date(),
-      notes:       notes || "",
-      receiptUrl:  receiptUrl || "",
+      date: date ? new Date(date) : new Date(),
+      notes: notes || "",
+      receiptUrl: receiptUrl || "",
       paymentMode: paymentMode || "Cash",
-      status:      "Pending",
+      status: "Pending",
     });
 
     const shaped = {
@@ -263,12 +263,12 @@ export const updateExpense = async (req, res) => {
       update.items = items;
       update.totalAmount = items.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
     }
-    if (date)         update.date         = new Date(date);
+    if (date) update.date = new Date(date);
     if (notes !== undefined) update.notes = notes;
-    if (lrNumber !== undefined)    update.lrNumber    = lrNumber;
-    if (receiptUrl !== undefined)  update.receiptUrl  = receiptUrl;
+    if (lrNumber !== undefined) update.lrNumber = lrNumber;
+    if (receiptUrl !== undefined) update.receiptUrl = receiptUrl;
     if (paymentMode !== undefined) update.paymentMode = paymentMode;
-    if (status !== undefined)      update.status      = status;
+    if (status !== undefined) update.status = status;
 
     const expense = await Expense.findByIdAndUpdate(req.params.id, update, { new: true });
     if (!expense) return res.status(404).json({ success: false, message: "Expense not found" });
@@ -310,7 +310,7 @@ export const getExpenseSummary = async (req, res) => {
     if (dateFrom || dateTo) {
       match.date = {};
       if (dateFrom) match.date.$gte = new Date(dateFrom);
-      if (dateTo)   match.date.$lte = new Date(dateTo);
+      if (dateTo) match.date.$lte = new Date(dateTo);
     }
 
     const summary = await Expense.aggregate([

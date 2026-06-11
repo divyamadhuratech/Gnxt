@@ -41,7 +41,7 @@ async function seed() {
   const superAdmin = new User({
     username: "admin",
     email: "admin@gnxt.com",
-    password: "Admin@2026",      // will be hashed by pre-save hook
+    password: "gnxt@admin@123",      // will be hashed by pre-save hook
     role: "Super Admin",
     branch: "All Branches",
     status: "Active",
@@ -63,7 +63,7 @@ async function seed() {
   console.log("✅ Super Admin seeded:");
   console.log("   Username : admin");
   console.log("   Email    : admin@gnxt.com");
-  console.log("   Password : Admin@2026");
+  console.log("   Password : gnxt@admin@123");
   console.log("   Role     : Super Admin");
 
   process.exit(0);

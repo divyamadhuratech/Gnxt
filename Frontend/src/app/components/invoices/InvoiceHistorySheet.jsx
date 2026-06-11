@@ -6,10 +6,13 @@ import { Input } from "../ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { Download, X, Search, Loader2 } from "lucide-react";
 import StatusBadge from "./StatusBadge";
+import { useAuth } from "../../context/AuthContext";
 
 const API_BASE_URL = import.meta.env?.VITE_API_URL || "http://localhost:5000/api";
 
 export function InvoiceHistorySheet({ open, onOpenChange }) {
+  const { token } = useAuth();
+  const getToken = () => token || localStorage.getItem("gnxt_token");
   const [searchQuery, setSearchQuery] = useState("");
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -26,7 +29,11 @@ export function InvoiceHistorySheet({ open, onOpenChange }) {
         limit: 15,
       });
 
-      const res = await fetch(`${API_BASE_URL}/invoices/history?${params}`);
+      const res = await fetch(`${API_BASE_URL}/invoices/history?${params}`, {
+        headers: {
+          Authorization: `Bearer ${getToken()}`,
+        },
+      });
       const result = await res.json();
 
       if (res.ok) {
@@ -43,10 +50,10 @@ export function InvoiceHistorySheet({ open, onOpenChange }) {
 
   // Fetch when opened or when dependencies change
   useEffect(() => {
-    if (open) {
+    if (open && token) {
       fetchHistory(searchQuery, currentPage);
     }
-  }, [open, searchQuery, currentPage]);
+  }, [open, searchQuery, currentPage, token]);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>

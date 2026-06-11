@@ -73,7 +73,7 @@ export function ExpenseFiltersBar({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All LR Numbers</SelectItem>
-            {shipmentIds.map((s) => (
+            {shipmentIds.filter(Boolean).map((s) => (
               <SelectItem key={s} value={s}>
                 {s}
               </SelectItem>
@@ -94,7 +94,7 @@ export function ExpenseFiltersBar({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Vehicles</SelectItem>
-            {vehicleIds.map((v) => (
+            {vehicleIds.filter(Boolean).map((v) => (
               <SelectItem key={v} value={v}>
                 {v}
               </SelectItem>
@@ -115,7 +115,7 @@ export function ExpenseFiltersBar({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Drivers</SelectItem>
-            {driverNames.map((d) => (
+            {driverNames.filter(Boolean).map((d) => (
               <SelectItem key={d} value={d}>
                 {d}
               </SelectItem>
@@ -136,7 +136,7 @@ export function ExpenseFiltersBar({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Dealers</SelectItem>
-            {dealerOptions.map((d) => (
+            {dealerOptions.filter(Boolean).map((d) => (
               <SelectItem key={d} value={d}>
                 {d}
               </SelectItem>
